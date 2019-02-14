@@ -1,10 +1,19 @@
-import Text.ParserCombinators.Parsec
-import Control.Monad (liftM2)
+import Data.List (intercalate)
+-- import Turtle
 
--- fnExt :: CharParser () (String, Maybe String)
-fnExt = liftM2 (,) filename extension
-filename = (many1 $ noneOf ".") `sepBy` char ','
-extension = optionMaybe $ char '.' >> many anyChar
+main :: IO ()
+main = do return ()
 
-fn :: String -> Either ParseError ([String], Maybe String)
-fn input = parse fnExt "" input
+groupBy :: String -> Char -> [String]
+groupBy s c = let (start, end) = break (== c) s
+              in start : if null end then [] else groupBy (tail end) c
+
+notNull = filter (not . null)
+split c s = notNull $ groupBy s c
+sections = split '.'
+terms = split ' '
+tokens s = terms <$> sections s
+hyphenate = intercalate "-"
+hyphenated s = hyphenate <$> tokens s
+dotted l = intercalate "." l
+fn = dotted . hyphenated
