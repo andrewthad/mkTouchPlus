@@ -1,15 +1,18 @@
-
-import Control.Applicative (liftA2)
 import Data.Char (toUpper)
-import Data.List (intercalate)
+import Data.List (intersperse)
 import System.Directory (createDirectory)
 import System.IO (appendFile)
 
--- Tokenisation ----------
+-- Utilities ----------
 
 groupBy :: String -> Char -> [String]
 groupBy s c = let (start, end) = break (== c) s
               in start : if null end then [] else groupBy (tail end) c
+
+eitherEq :: (Eq a) => a -> a -> a -> Bool
+eitherEq a b c = (a == b) || (a == c)
+
+-- Tokenisation ----------
 
 notNull = filter (not . null)
 split c s = notNull $ groupBy s c
@@ -17,31 +20,35 @@ sections = split '.'
 terms = split ' '
 tokens s = terms <$> sections s
 
--- Cases ----------
+-- Separators ----------
 
-hyphenCase :: [String] -> String
-hyphenCase = intercalate "-"
+hyphenSep :: [String] -> [String]
+hyphenSep = intersperse "-"
 
-snakeCase :: [String] -> String
-snakeCase = intercalate "_"
+snakeSep :: [String] -> [String]
+snakeSep = intersperse "_"
 
-dotCase :: [String] -> String
-dotCase = intercalate "."
+dotSep :: [String] -> [String]
+dotSep = intersperse "."
 
-titleCase :: [String] -> String
-titleCase [] = ""
-titleCase [x] = x
-titleCase (x:xs) = title x ++ titleCase xs
+titleSep :: [String] -> String
+titleSep [] = ""
+titleSep [x] = x
+titleSep (x:xs) = title x ++ titleSep xs
     where title (c:cs) = toUpper c : cs
 
-camelCase :: [String] -> String
-camelCase [] = []
-camelCase [x] = x
-camelCase (x:xs) = x ++ titleCase xs
+camelSep :: [String] -> String
+camelSep [] = []
+camelSep [x] = x
+camelSep (x:xs) = x ++ titleSep xs
 
-upperCase :: [String] -> String
-upperCase [] = []
-upperCase (x:xs) = (map toUpper x) ++ upperCase xs
+-- noSep :: [String] -> String
+-- noSep = intercalate ""
+
+-- Cases ----------
+
+-- TODO: make all cases and seps [String] --> [String] ?
+-- Instead of intercalate, insert a separator char between each function
 
 -- IO ----------
 
@@ -55,28 +62,28 @@ mkDir name = createDirectory name
 
 -- Composition ----------
 
-maker :: (FilePath -> IO ()) -> ([String] -> String) -> String -> IO ()
-maker io case' name = io $ dotCase $ case' <$> tokens name
+-- maker :: (FilePath -> IO ()) -> ([String] -> [String]) -> String -> IO ()
+-- maker io case' name = io $ dotSep $ case' <$> tokens name
 
-maker' :: (FilePath -> IO ()) -> ([String] -> String) -> String -> IO ()
-maker' io case' name = do
-    let tokens' = tokens name
-    if True
-       then putStrLn "Help me!"
-       else io $ dotCase $ case' <$> tokens name
+maker'' io sep {- case' -} name = io $ dotSep $ (sep' sep) <$> tokens name
+    where sep' sep | eitherEq sep "h" "hyphenSep" = hyphenSep
+                   | eitherEq sep "s" "snakeSep"  = snakeSep
+                   | eitherEq sep "n" "noSep"     = id
+                   | otherwise                    = hyphenSep
 
-maker'' 
+-- TODO: use monads? (>>=) :: Monad m => m a -> (a -> m b) -> m b
+-- TODO: change from use of elem, to a function that matches each character. "abc" ~~~ "abcde" ==> True
 
-tHyphen = maker touch hyphenCase
-tTitle = maker touch titleCase
-tCamel = maker touch camelCase
-tSnake = maker touch snakeCase
-tDot = maker touch dotCase
-tUpper = maker touch upperCase
-mHyphen = maker mkDir hyphenCase
-mCamel = maker mkDir camelCase
-t = maker' touch hyphenCase
+t sep {- case' -} = maker'' touch sep
 
--- TODO: use maker as the only function. use two arguments for case: sep and case
 -- sep: none, hyphen, underscore
 -- case: lower, upper, title, camel
+
+-- tHyphen = maker touch hyphenCase
+-- tTitle = maker touch titleCase
+-- tCamel = maker touch camelCase
+-- tSnake = maker touch snakeCase
+-- tDot = maker touch dotCase
+-- tUpper = maker touch upperCase
+-- mHyphen = maker mkDir hyphenCase
+-- mCamel = maker mkDir camelCase
