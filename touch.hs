@@ -42,13 +42,7 @@ camelSep [] = []
 camelSep [x] = x
 camelSep (x:xs) = x ++ titleSep xs
 
--- noSep :: [String] -> String
--- noSep = intercalate ""
-
 -- Cases ----------
-
--- TODO: make all cases and seps [String] --> [String] ?
--- Instead of intercalate, insert a separator char between each function
 
 -- IO ----------
 
@@ -72,7 +66,6 @@ maker'' io sep {- case' -} name = io $ dotSep $ (sep' sep) <$> tokens name
                    | otherwise                    = hyphenSep
 
 -- TODO: use monads? (>>=) :: Monad m => m a -> (a -> m b) -> m b
--- TODO: change from use of elem, to a function that matches each character. "abc" ~~~ "abcde" ==> True
 
 t sep {- case' -} = maker'' touch sep
 
