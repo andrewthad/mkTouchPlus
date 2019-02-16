@@ -58,21 +58,14 @@ mkDir name = createDirectory name
 maker :: (FilePath -> IO ()) -> ([String] -> String) -> String -> IO ()
 maker io case' name = io $ dotCase $ case' <$> tokens name
 
-anyEq :: Eq a => [a] -> [a] -> Bool
-anyEq x y = any id $ liftA2 (==) x y
-
-help :: [[String]] -> IO ()
-help x = mapM_ help' x
-    where help' x = if ["-h", "--help"] `anyEq` x
-                        then putStrLn "Help me!"
-                        else return ()
-
 maker' :: (FilePath -> IO ()) -> ([String] -> String) -> String -> IO ()
 maker' io case' name = do
     let tokens' = tokens name
     if True
        then putStrLn "Help me!"
        else io $ dotCase $ case' <$> tokens name
+
+maker'' 
 
 tHyphen = maker touch hyphenCase
 tTitle = maker touch titleCase
@@ -84,16 +77,6 @@ mHyphen = maker mkDir hyphenCase
 mCamel = maker mkDir camelCase
 t = maker' touch hyphenCase
 
--- TODO: change this combinatorial explosion of functions to a system that uses flags. Deal with the flags up there after you tokenise.
--- TODO: flags for formatting can be combined. e.g. snakeCase + upperCase
-
-
--- flags x = map (map (a `elem` ["-h", "--help"])) x
-
--- elem
-
--- anyEq :: Eq a => [a] -> [a] -> Bool
--- anyEq x y = any id $ liftA2 (==) x y
-
--- flags :: [[String]] -> IO ()
--- flags x = (anyEq ["-h", "--help"]) <$> x -- then putStrLn "It's the help!"
+-- TODO: use maker as the only function. use two arguments for case: sep and case
+-- sep: none, hyphen, underscore
+-- case: lower, upper, title, camel
