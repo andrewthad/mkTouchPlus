@@ -1,73 +1,82 @@
-import Data.Char (toUpper)
-import Data.List (intersperse)
+import Control.Monad ((>=>))
+import Data.Char (toLower, toUpper, isSpace)
+import Data.Function (on)
+import Data.List (intercalate, intersperse, groupBy)
 import System.Directory (createDirectory)
 import System.IO (appendFile)
 
--- Utilities ----------
-
-groupBy :: String -> Char -> [String]
-groupBy s c = let (start, end) = break (== c) s
-              in start : if null end then [] else groupBy (tail end) c
-
-eitherEq :: (Eq a) => a -> a -> a -> Bool
-eitherEq a b c = (a == b) || (a == c)
-
 -- Tokenisation ----------
 
+groupStr :: Char -> String -> [String]
+groupStr c s = let (start, end) = break (== c) s
+               in start : if null end then [] else groupStr c (tail end)
+-- TODO: use groupBy ((==) `on` isSpace) instead?
+
+-- TODO: type signature for these?:
 notNull = filter (not . null)
-split c s = notNull $ groupBy s c
-sections = split '.'
-terms = split ' '
-tokens s = terms <$> sections s
+sections = notNull . groupStr '.'
+tokens s = words <$> sections s
 
 -- Separators ----------
 
-hyphenSep :: [String] -> [String]
+hyphenSep, snakeSep, dotSep :: [String] -> [String]
+
 hyphenSep = intersperse "-"
-
-snakeSep :: [String] -> [String]
 snakeSep = intersperse "_"
-
-dotSep :: [String] -> [String]
 dotSep = intersperse "."
 
-titleSep :: [String] -> String
-titleSep [] = ""
-titleSep [x] = x
-titleSep (x:xs) = title x ++ titleSep xs
-    where title (c:cs) = toUpper c : cs
-
-camelSep :: [String] -> String
-camelSep [] = []
-camelSep [x] = x
-camelSep (x:xs) = x ++ titleSep xs
-
 -- Cases ----------
+
+lowerCase, upperCase, titleCase, camelCase :: String -> String
+
+lowerCase = map toLower
+upperCase = map toUpper
+titleCase = groupBy ((==) `on` isSpace) >=> \(c:cs) -> toUpper c : cs
+camelCase = groupBy ((==) `on` isSpace) >=> \(c:cs) -> c : titleCase cs
+-- TODO: title and camel dont work yet
+-- see here: https://stackoverflow.com/questions/34160196/haskell-capitalize-the-first-letter-of-each-word-in-a-string-without-losing-wh
 
 -- IO ----------
 
 -- TODO: print filename and 'success' etc after creating it
 
-touch :: FilePath -> IO ()
-touch name = appendFile name ""
+touch, mkDir :: String -> IO ()
 
-mkDir :: FilePath -> IO ()
-mkDir name = createDirectory name
+touch s = appendFile s ""
+mkDir s = createDirectory s
 
 -- Composition ----------
 
 -- maker :: (FilePath -> IO ()) -> ([String] -> [String]) -> String -> IO ()
 -- maker io case' name = io $ dotSep $ case' <$> tokens name
 
-maker'' io sep {- case' -} name = io $ dotSep $ (sep' sep) <$> tokens name
-    where sep' sep | eitherEq sep "h" "hyphenSep" = hyphenSep
-                   | eitherEq sep "s" "snakeSep"  = snakeSep
-                   | eitherEq sep "n" "noSep"     = id
-                   | otherwise                    = hyphenSep
+-- maker'' io sep {- case' -} name = io $ (intercalate ".") $ (sep' sep) <$> tokens name
+--     where eitherSep a b = (sep == a) || (sep == b)
+--           sep' sep | eitherSep "h" "hyphenSep" = hyphenSep
+--                    | eitherSep "s" "snakeSep"  = snakeSep
+--                    | otherwise                 = hyphenSep
 
--- TODO: use monads? (>>=) :: Monad m => m a -> (a -> m b) -> m b
+maker''' sep case' name = (case'' case') $ merge $ dot $ (sep' sep) <$> tokens name
+    where eitherEq a b c = (a == b) || (a == c)
+          eitherSep = eitherEq sep
+          eitherCase = eitherEq case'
+          sep' sep | eitherSep "h" "hyphenSep" = hyphenSep
+                   | eitherSep "s" "snakeSep"  = snakeSep
+                   | eitherSep "d" "dotSep"    = dotSep
+                   | eitherSep "n" "noSep"     = id
+                   | otherwise                 = hyphenSep
+          dot = foldr (\x y -> if y == [] then x ++ y else x ++ ["."] ++ y) []
+          merge = intercalate ""
+          case'' case' | eitherCase "n" "noCase"    = id
+                       | eitherCase "l" "lowerCase" = lowerCase
+                       | eitherCase "u" "upperCase" = upperCase
+                       | eitherCase "t" "titleCase" = titleCase
+                       | eitherCase "c" "camelCase" = camelCase
+                       | otherwise                  = id
 
-t sep {- case' -} = maker'' touch sep
+t = maker''' "h" "t"
+
+
 
 -- sep: none, hyphen, underscore
 -- case: lower, upper, title, camel
