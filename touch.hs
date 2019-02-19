@@ -32,6 +32,10 @@ mapButFirst f [] = []
 mapButFirst f [x] = [x]
 mapButFirst f (x:xs) = x : map f xs
 
+putShow :: String -> IO ()
+putShow = putStrLn . show
+-- TODO: regex all to this
+
 -- Tokenisation ----------
 
 notNull :: [[a]] -> [[a]]
@@ -68,6 +72,15 @@ camelCase = mapButLast $ mapButFirst title
 
 touch, mkDir :: String -> IO ()
 
+-- create :: String -> String -> 
+create name wwwww fExist fCreate = do
+    exists <- existence s
+    if exists
+       then putStrLn $ show $ "The file '" ++ fileName ++ "' already exists so hasn't been changed."
+       else do
+           create s ""
+           putShow $ "Created " ++ wwwww ++ ": '" ++ fileName ++ "'"
+
 touch s = do
     exists <- doesFileExist s
     if exists
@@ -87,28 +100,34 @@ mkDir = do
 
 -- Composition ----------
 
-maker io sep charCase name = io
-                           $ concat
-                           $ sepChoice sep
-                           $ concat
-                           $ caseChoice charCase
-                           $ tokens name
-    where eitherSep = eitherEq sep
-          eitherCase = eitherEq charCase
-          sepChoice sep | eitherSep "h" "hyphenSep" = hyphenSep
-                        | eitherSep "s" "snakeSep"  = snakeSep
-                        | eitherSep "d" "dotSep"    = dotSep
-                        | eitherSep "S" "spaceSep"  = spaceSep
-                        | eitherSep "n" "noSep"     = id
-                        | otherwise                 = id
-          caseChoice charCase | eitherCase "n" "noCase"    = id
-                              | eitherCase "l" "lowerCase" = lowerCase
-                              | eitherCase "u" "upperCase" = upperCase
-                              | eitherCase "t" "titleCase" = titleCase
-                              | eitherCase "c" "camelCase" = camelCase
-                              | otherwise                  = id
-          io | eitherCase "t" "touch" = touch
+sepChoice :: String -> ([String] -> [String])
+sepChoice sep | eitherSep "h" "hyphenSep" = hyphenSep
+              | eitherSep "s" "snakeSep"  = snakeSep
+              | eitherSep "d" "dotSep"    = dotSep
+              | eitherSep "S" "spaceSep"  = spaceSep
+              | eitherSep "n" "noSep"     = id
+              | otherwise                 = id
+
+caseChoice :: String -> ([[String]] -> [[String]])
+caseChoice charCase | eitherCase "n" "noCase"    = id
+                    | eitherCase "l" "lowerCase" = lowerCase
+                    | eitherCase "u" "upperCase" = upperCase
+                    | eitherCase "t" "titleCase" = titleCase
+                    | eitherCase "c" "camelCase" = camelCase
+                    | otherwise                  = id
+
+createChoice :: String -> (String -> IO ())
+createChoice | eitherCase "t" "touch" = touch
              | eitherCase "m" "mkdir" = mkDir
              | otherwise              = putStrLn . show
+
+maker createChoice sep charCase name = let eitherSep  = eitherEq sep
+                                           eitherCase = eitherEq charCase
+                                        in createChoice
+                                         $ concat
+                                         $ sepChoice sep
+                                         $ concat
+                                         $ caseChoice charCase
+                                         $ tokens name
 
 t = maker "touch" "" ""
