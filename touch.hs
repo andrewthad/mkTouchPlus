@@ -34,7 +34,6 @@ mapButFirst f (x:xs) = x : map f xs
 
 putShow :: String -> IO ()
 putShow = putStrLn . show
--- TODO: regex all to this
 
 -- Tokenisation ----------
 
@@ -72,31 +71,24 @@ camelCase = mapButLast $ mapButFirst title
 
 touch, mkDir :: String -> IO ()
 
--- create :: String -> String -> 
-create name wwwww fExist fCreate = do
-    exists <- existence s
-    if exists
-       then putStrLn $ show $ "The file '" ++ fileName ++ "' already exists so hasn't been changed."
-       else do
-           create s ""
-           putShow $ "Created " ++ wwwww ++ ": '" ++ fileName ++ "'"
+touch s = appendFile s ""
+mkDir = createDirectory
 
-touch s = do
-    exists <- doesFileExist s
+create mode name = do
+    exists <- touch name
     if exists
-       then putStrLn $ show $ "The file '" ++ s ++ "' already exists, but it hasn't been overwritten by this operation"
+       then putStrLn $ show $ "Skipped " ++ title "file" ++ ": '" ++ name ++ "' already exists so it hasn't been changed."
        else do
-           appendFile s ""
-           putStrLn $ show $ "Created file: '" ++ s ++ "'"
-
-mkDir = do
-    exists <- doesDirectoryExist s
-    if exists
-       then putStrLn $ show $ "The directory '" ++ s ++ "' already exists, but it hasn't been overwritten by this operation"
-       else do
-           createDirectory s
-           putStrLn $ show $ "Created directory: '" ++ s ++ "'"
-
+           touch name
+           putShow $ "Created " ++ title "file" ++ ": '" ++ name ++ "'"
+--  "file" doesFileExist touch
+-- create mode name = do
+--     exists <- mode name
+--     if exists
+--        then putStrLn $ show $ "Skipped " ++ title systemType ++ ": '" ++ name ++ "' already exists so it hasn't been changed."
+--        else do
+--            create name ""
+--            putShow $ "Created " ++ title systemType ++ ": '" ++ name ++ "'"
 
 -- Composition ----------
 
@@ -107,27 +99,25 @@ sepChoice sep | eitherSep "h" "hyphenSep" = hyphenSep
               | eitherSep "S" "spaceSep"  = spaceSep
               | eitherSep "n" "noSep"     = id
               | otherwise                 = id
+                where eitherSep = eitherEq sep
 
 caseChoice :: String -> ([[String]] -> [[String]])
-caseChoice charCase | eitherCase "n" "noCase"    = id
-                    | eitherCase "l" "lowerCase" = lowerCase
-                    | eitherCase "u" "upperCase" = upperCase
-                    | eitherCase "t" "titleCase" = titleCase
-                    | eitherCase "c" "camelCase" = camelCase
+caseChoice charCase | eitherEq charCase "n" "noCase"    = id
+                    | eitherEq charCase "l" "lowerCase" = lowerCase
+                    | eitherEq charCase "u" "upperCase" = upperCase
+                    | eitherEq charCase "t" "titleCase" = titleCase
+                    | eitherEq charCase "c" "camelCase" = camelCase
                     | otherwise                  = id
 
-createChoice :: String -> (String -> IO ())
-createChoice | eitherCase "t" "touch" = touch
-             | eitherCase "m" "mkdir" = mkDir
-             | otherwise              = putStrLn . show
+createChoice createOp | eitherEq createOp "t" "touch" = create (touch)
+                      | eitherEq createOp "m" "mkdir" = create (touch)
+                      | otherwise                     = create (touch)
 
-maker createChoice sep charCase name = let eitherSep  = eitherEq sep
-                                           eitherCase = eitherEq charCase
-                                        in createChoice
-                                         $ concat
-                                         $ sepChoice sep
-                                         $ concat
-                                         $ caseChoice charCase
-                                         $ tokens name
+maker createOp sep charCase name = createChoice createOp
+                                 $ concat
+                                 $ sepChoice sep
+                                 $ concat
+                                 $ caseChoice charCase
+                                 $ tokens name
 
-t = maker "touch" "" ""
+t = maker "touch" "h" ""
