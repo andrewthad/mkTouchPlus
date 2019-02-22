@@ -1,12 +1,26 @@
 import Data.Char (toLower, toUpper, isSpace, isSeparator, isPunctuation)
 import Data.Function (on)
 import Data.List (intercalate, intersperse, groupBy, scanl)
-import System.IO (appendFile)
+import System.IO (writeFile)
 
 import System.Directory -- (createDirectory)
 import System.Environment
 import System.IO
 import System.IO.Error
+
+-- TODO: default format for extension: remove spaces + all lowercase. apply this separately from name format. Use (filename, ext) tuple again? Probably not
+-- TODO: make isSep more succinct
+-- TODO: revert back to the old groupStr that strips out punctuation?
+-- TODO: add error message for no file name provided
+-- TODO: coloured output
+-- TODO: column formatting:
+-- Created File:
+-- Skipped Directory: <-- longest column. so width is based on this
+-- (titlecase the column)
+-- titlecased, coloured column to its own function
+-- TODO: user prompt to remove illegal characters from file name or otherwise skip operation
+-- TODO: use where to simplify all eitherEq to eitherSep (for each of these three helper functions)
+-- TODO: 'smart' is an alternative to touch and mkdir that calls either of those two for each file even if multiple are given. it calls mkdir if no file extension and touch if file extension exists
 
 -- Utilities ----------
 
@@ -32,8 +46,10 @@ mapButFirst f [] = []
 mapButFirst f [x] = [x]
 mapButFirst f (x:xs) = x : map f xs
 
-putShow :: String -> IO ()
+putShow, createFile :: String -> IO ()
+
 putShow = putStrLn . show
+createFile s = writeFile s ""
 
 -- Tokenisation ----------
 
@@ -69,26 +85,24 @@ camelCase = mapButLast $ mapButFirst title
 
 -- IO ----------
 
-touch, mkDir :: String -> IO ()
+col :: String -> String -> String
+col op s = take 14 (op ++ " " ++ s) ++ ": "
 
-touch s = appendFile s ""
-mkDir = createDirectory
+createCol, skipCol :: String -> String
 
-create mode name = do
-    exists <- touch name
-    if exists
-       then putStrLn $ show $ "Skipped " ++ title "file" ++ ": '" ++ name ++ "' already exists so it hasn't been changed."
-       else do
-           touch name
-           putShow $ "Created " ++ title "file" ++ ": '" ++ name ++ "'"
---  "file" doesFileExist touch
--- create mode name = do
---     exists <- mode name
---     if exists
---        then putStrLn $ show $ "Skipped " ++ title systemType ++ ": '" ++ name ++ "' already exists so it hasn't been changed."
---        else do
---            create name ""
---            putShow $ "Created " ++ title systemType ++ ": '" ++ name ++ "'"
+createCol = col "Created"
+skipCol = col "Skipped"
+
+create :: String -> (String -> IO Bool) -> (String -> IO ()) -> String -> IO ()
+create form existF makeF s = do
+    if s == ""
+       then putShow $ skipCol form ++ "No " ++ form ++ " name provided."
+       else do exists <- existF s
+               if exists
+                  then putShow $ "The " ++ form ++ " '" ++ s ++ "' already exists, but it hasn't been overwritten by this operation"
+                  else do
+                      makeF s
+                      putShow $ createCol form ++ "'" ++ s ++ "'"
 
 -- Composition ----------
 
@@ -109,9 +123,10 @@ caseChoice charCase | eitherEq charCase "n" "noCase"    = id
                     | eitherEq charCase "c" "camelCase" = camelCase
                     | otherwise                  = id
 
-createChoice createOp | eitherEq createOp "t" "touch" = create (touch)
-                      | eitherEq createOp "m" "mkdir" = create (touch)
-                      | otherwise                     = create (touch)
+createChoice :: String -> (String -> IO ())
+createChoice createOp | eitherEq createOp "t" "touch" = create "File" doesFileExist createFile
+                      | eitherEq createOp "m" "mkdir" = create "Folder" doesDirectoryExist createDirectory
+                      | otherwise                     = putShow
 
 maker createOp sep charCase name = createChoice createOp
                                  $ concat
@@ -120,4 +135,6 @@ maker createOp sep charCase name = createChoice createOp
                                  $ caseChoice charCase
                                  $ tokens name
 
-t = maker "touch" "h" ""
+t = maker "touch" "" ""
+m = maker "mkdir" "" ""
+o = maker "other" "" ""
