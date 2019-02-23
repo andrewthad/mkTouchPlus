@@ -9,15 +9,7 @@ import System.IO
 import System.IO.Error
 
 -- TODO: default format for extension: remove spaces + all lowercase. apply this separately from name format. Use (filename, ext) tuple again? Probably not
--- TODO: make isSep more succinct
--- TODO: revert back to the old groupStr that strips out punctuation?
--- TODO: add error message for no file name provided
 -- TODO: coloured output
--- TODO: column formatting:
--- Created File:
--- Skipped Directory: <-- longest column. so width is based on this
--- (titlecase the column)
--- titlecased, coloured column to its own function
 -- TODO: user prompt to remove illegal characters from file name or otherwise skip operation
 -- TODO: use where to simplify all eitherEq to eitherSep (for each of these three helper functions)
 -- TODO: 'smart' is an alternative to touch and mkdir that calls either of those two for each file even if multiple are given. it calls mkdir if no file extension and touch if file extension exists
@@ -31,7 +23,8 @@ eitherEq :: (Eq a) => a -> a -> a -> Bool
 eitherEq a = (||) `on` (a ==)
 
 groupStr :: Char -> String -> [String]
-groupStr c = groupBy ((==) `on` (== c))
+groupStr c s = let (start, end) = break (== c) s
+                in start : if null end then [] else groupStr c (tail end)
 
 groupSep :: String -> [String]
 groupSep = groupBy ((==) `on` isSep)
@@ -46,9 +39,9 @@ mapButFirst f [] = []
 mapButFirst f [x] = [x]
 mapButFirst f (x:xs) = x : map f xs
 
-putShow, createFile :: String -> IO ()
+putId, createFile :: String -> IO ()
 
-putShow = putStrLn . show
+putId = putStrLn . id
 createFile s = writeFile s ""
 
 -- Tokenisation ----------
@@ -85,24 +78,23 @@ camelCase = mapButLast $ mapButFirst title
 
 -- IO ----------
 
-col :: String -> String -> String
-col op s = take 14 (op ++ " " ++ s) ++ ": "
+msg :: String -> String -> String -> IO ()
+msg op form s = putId $ take 14 (op ++ " " ++ form) ++ ": " ++ s
 
-createCol, skipCol :: String -> String
+createMsg, skipMsg :: String -> String -> IO ()
 
-createCol = col "Created"
-skipCol = col "Skipped"
+createMsg op s = msg op "Created" s
+skipMsg op s = msg op "Skipped" s
 
 create :: String -> (String -> IO Bool) -> (String -> IO ()) -> String -> IO ()
-create form existF makeF s = do
-    if s == ""
-       then putShow $ skipCol form ++ "No " ++ form ++ " name provided."
-       else do exists <- existF s
-               if exists
-                  then putShow $ "The " ++ form ++ " '" ++ s ++ "' already exists, but it hasn't been overwritten by this operation"
-                  else do
-                      makeF s
-                      putShow $ createCol form ++ "'" ++ s ++ "'"
+create form existF makeF s = if s == ""
+                                then skipMsg form ("No " ++ form ++ " name provided.")
+                                else do exists <- existF s
+                                        if exists
+                                           then skipMsg form ("The " ++ form ++ " '" ++ s ++ "' already exists, but it hasn't been overwritten by this operation")
+                                           else do
+                                               makeF s
+                                               createMsg form ("'" ++ s ++ "'")
 
 -- Composition ----------
 
@@ -126,15 +118,10 @@ caseChoice charCase | eitherEq charCase "n" "noCase"    = id
 createChoice :: String -> (String -> IO ())
 createChoice createOp | eitherEq createOp "t" "touch" = create "File" doesFileExist createFile
                       | eitherEq createOp "m" "mkdir" = create "Folder" doesDirectoryExist createDirectory
-                      | otherwise                     = putShow
+                      | otherwise                     = putId
 
-maker createOp sep charCase name = createChoice createOp
-                                 $ concat
-                                 $ sepChoice sep
-                                 $ concat
-                                 $ caseChoice charCase
-                                 $ tokens name
+maker createOp sep charCase name = createChoice createOp $ concat $ sepChoice sep $ concat $ caseChoice charCase $ tokens name
 
 t = maker "touch" "" ""
 m = maker "mkdir" "" ""
-o = maker "other" "" ""
+o = maker "other" "h" ""
