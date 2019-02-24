@@ -1,17 +1,11 @@
 import Data.Char (toLower, toUpper, isSpace, isSeparator, isPunctuation)
 import Data.Function (on)
-import Data.List (intercalate, intersperse, groupBy, scanl)
+import Data.List (intersperse, groupBy)
 import System.IO (writeFile)
-
-import System.Directory -- (createDirectory)
-import System.Environment
-import System.IO
-import System.IO.Error
+import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
 
 -- TODO: coloured output
 -- TODO: user prompt to remove illegal characters from file name or otherwise skip operation
--- TODO: 'smart' is an alternative to touch and mkdir that calls either of those two for each file even if multiple are given. it calls mkdir if no file extension and touch if file extension exists
--- TODO: make extFormat use the same options as the name formatting, but with a different default value
 
 -- Utilities ----------
 
@@ -42,10 +36,10 @@ mapButFirst f [] = []
 mapButFirst f [x] = [x]
 mapButFirst f (x:xs) = x : map f xs
 
-putId, createFile :: String -> IO ()
+putId, writeFile' :: String -> IO ()
 
 putId = putStrLn . id
-createFile s = writeFile s ""
+writeFile' s = writeFile s ""
 
 putToList :: a -> [a]
 putToList x = [x]
@@ -63,12 +57,13 @@ tokens s = words <$> sections s
 
 -- Separators ----------
 
-hyphenSep, snakeSep, dotSep :: [String] -> [String]
+hyphenSep, snakeSep, dotSep, extSep :: [String] -> [String]
 
 hyphenSep = intersperse "-"
 snakeSep = intersperse "_"
 dotSep = intersperse "."
 spaceSep = intersperse " "
+extSep = putToList . concat
 
 dot :: [[String]] -> [String]
 dot = foldr (\x y -> if y == [] then x ++ y else x ++ ["."] ++ y) []
@@ -84,11 +79,6 @@ lowerCase = map $ map toLower
 upperCase = map $ map toUpper
 titleCase = map title
 camelCase = mapButFirst title
-
--- Extension formatting ----------
-
-extFormat :: [[a]] -> [[a]]
-extFormat = putToList . concat
 
 -- IO ----------
 
@@ -109,10 +99,17 @@ create form existF makeF s = if s == ""
                                            else do
                                                makeF s
                                                createMsg form ("'" ++ s ++ "'")
+-- TODO: use this instead? func1 arg <|> func2 arg <|> func3 arg <|> func4 arg
+
+createFile, createFolder, createSmart :: String -> IO ()
+
+createFile = create "File" doesFileExist writeFile'
+createFolder = create "Folder" doesDirectoryExist createDirectory
+createSmart s = if '.' `elem` s then createFile s else createFolder s
 
 -- Composition ----------
 
-sepChoice, caseChoice :: String -> ([String] -> [String])
+sepChoice, caseChoice, extChoice :: String -> ([String] -> [String])
 
 sepChoice sep | eitherSep "h" "hyphenSep" = hyphenSep
               | eitherSep "s" "snakeSep"  = snakeSep
@@ -122,27 +119,29 @@ sepChoice sep | eitherSep "h" "hyphenSep" = hyphenSep
               | otherwise                 = id
                 where eitherSep = eitherEq sep
 
-caseChoice charCase | eitherCase "n" "noCase"    = id
-                    | eitherCase "l" "lowerCase" = lowerCase
+caseChoice charCase | eitherCase "l" "lowerCase" = lowerCase
                     | eitherCase "u" "upperCase" = upperCase
                     | eitherCase "t" "titleCase" = titleCase
                     | eitherCase "c" "camelCase" = camelCase
+                    | eitherCase "n" "noCase"    = id
                     | otherwise                  = id
                       where eitherCase = eitherEq charCase
 
-extChoice ext | null ext                  = extFormat
-              | eitherExt "e" "extFormat" = extFormat
-              | otherwise                 = sepChoice ext
+extChoice ext | null ext               = extSep
+              | eitherExt "e" "extSep" = extSep
+              | otherwise              = sepChoice ext
                 where eitherExt = eitherEq ext
 
 createChoice :: String -> (String -> IO ())
-createChoice createOp | eitherCreate "t" "touch" = create "File" doesFileExist createFile
-                      | eitherCreate "m" "mkdir" = create "Folder" doesDirectoryExist createDirectory
+createChoice createOp | eitherCreate "t" "touch" = createFile
+                      | eitherCreate "m" "mkdir" = createFolder
+                      | eitherCreate "s" "smart" = createSmart
                       | otherwise                = putId -- TODO: change to error message later
                         where eitherCreate = eitherEq createOp
 
-maker createOp sep charCase ext name = createChoice createOp $ concat $ dot $ (mapButLast $ sepChoice sep) $ (mapLast $ extChoice ext) $ (mapButLast $ caseChoice charCase) $ tokens name
+maker createOp sep charCase ext name = createChoice createOp $ concat $ dot $ (mapLast $ extChoice ext) $ (mapButLast $ sepChoice sep . caseChoice charCase) $ tokens name
 
 t = maker "touch" "" "" ""
 m = maker "mkdir" "" "" ""
+s = maker "smart" "" "" ""
 o = maker "other" "h" "u" ""
