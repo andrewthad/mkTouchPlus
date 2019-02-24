@@ -13,6 +13,7 @@ import System.IO.Error
 -- TODO: user prompt to remove illegal characters from file name or otherwise skip operation
 -- TODO: use where to simplify all eitherEq to eitherSep (for each of these three helper functions)
 -- TODO: 'smart' is an alternative to touch and mkdir that calls either of those two for each file even if multiple are given. it calls mkdir if no file extension and touch if file extension exists
+-- TODO: make extFormat use the same options as the name formatting, but with a different default value
 
 -- Utilities ----------
 
@@ -29,12 +30,16 @@ groupStr c s = let (start, end) = break (== c) s
 groupSep :: String -> [String]
 groupSep = groupBy ((==) `on` isSep)
 
-mapButLast :: (a -> a) -> [a] -> [a]
+mapLast, mapButLast, mapButFirst :: (a -> a) -> [a] -> [a]
+
+mapLast f [] = []
+mapLast f [x] = [f x]
+mapLast f (x:xs) = x : mapLast f xs
+
 mapButLast f [] = []
 mapButLast f [x] = [x]
 mapButLast f (x:xs) = f x : mapButLast f xs
 
-mapButFirst :: (a -> a) -> [a] -> [a]
 mapButFirst f [] = []
 mapButFirst f [x] = [x]
 mapButFirst f (x:xs) = x : map f xs
@@ -43,6 +48,9 @@ putId, createFile :: String -> IO ()
 
 putId = putStrLn . id
 createFile s = writeFile s ""
+
+putToList :: a -> [a]
+putToList x = [x]
 
 -- Tokenisation ----------
 
@@ -64,17 +72,25 @@ snakeSep = intersperse "_"
 dotSep = intersperse "."
 spaceSep = intersperse " "
 
+dot :: [[String]] -> [String]
+dot = foldr (\x y -> if y == [] then x ++ y else x ++ ["."] ++ y) []
+
 -- Cases ----------
 
 title :: String -> String
 title (c:cs) = toUpper c : cs
 
-lowerCase, upperCase, titleCase, camelCase :: [[String]] -> [[String]]
+lowerCase, upperCase, titleCase, camelCase :: [String] -> [String]
 
-lowerCase = mapButLast $ map $ map toLower
-upperCase = mapButLast $ map $ map toUpper
-titleCase = mapButLast $ map title
-camelCase = mapButLast $ mapButFirst title
+lowerCase = map $ map toLower
+upperCase = map $ map toUpper
+titleCase = map title
+camelCase = mapButFirst title
+
+-- Extension formatting ----------
+
+-- extFormat :: [String] -> [String]
+-- extFormat = mapLast concat
 
 -- IO ----------
 
@@ -108,11 +124,11 @@ sepChoice sep | eitherSep "h" "hyphenSep" = hyphenSep
                 where eitherSep = eitherEq sep
 
 caseChoice :: String -> ([[String]] -> [[String]])
-caseChoice charCase | eitherEq charCase "n" "noCase"    = id
-                    | eitherEq charCase "l" "lowerCase" = lowerCase
-                    | eitherEq charCase "u" "upperCase" = upperCase
-                    | eitherEq charCase "t" "titleCase" = titleCase
-                    | eitherEq charCase "c" "camelCase" = camelCase
+caseChoice charCase | eitherEq charCase "n" "noCase"    = mapButLast $ id
+                    | eitherEq charCase "l" "lowerCase" = mapButLast $ lowerCase
+                    | eitherEq charCase "u" "upperCase" = mapButLast $ upperCase
+                    | eitherEq charCase "t" "titleCase" = mapButLast $ titleCase
+                    | eitherEq charCase "c" "camelCase" = mapButLast $ camelCase
                     | otherwise                  = id
 
 createChoice :: String -> (String -> IO ())
@@ -120,8 +136,10 @@ createChoice createOp | eitherEq createOp "t" "touch" = create "File" doesFileEx
                       | eitherEq createOp "m" "mkdir" = create "Folder" doesDirectoryExist createDirectory
                       | otherwise                     = putId
 
-maker createOp sep charCase name = createChoice createOp $ concat $ sepChoice sep $ concat $ caseChoice charCase $ tokens name
+extFormat = mapLast (putToList . concat)
+
+maker createOp sep charCase name = createChoice createOp $ concat $ dot $ (mapButLast $ sepChoice sep) $ extFormat $ caseChoice charCase $ tokens name
 
 t = maker "touch" "" ""
 m = maker "mkdir" "" ""
-o = maker "other" "h" ""
+o = maker "other" "h" "u"
