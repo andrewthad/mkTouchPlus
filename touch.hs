@@ -8,10 +8,8 @@ import System.Environment
 import System.IO
 import System.IO.Error
 
--- TODO: default format for extension: remove spaces + all lowercase. apply this separately from name format. Use (filename, ext) tuple again? Probably not
 -- TODO: coloured output
 -- TODO: user prompt to remove illegal characters from file name or otherwise skip operation
--- TODO: use where to simplify all eitherEq to eitherSep (for each of these three helper functions)
 -- TODO: 'smart' is an alternative to touch and mkdir that calls either of those two for each file even if multiple are given. it calls mkdir if no file extension and touch if file extension exists
 -- TODO: make extFormat use the same options as the name formatting, but with a different default value
 
@@ -89,8 +87,8 @@ camelCase = mapButFirst title
 
 -- Extension formatting ----------
 
--- extFormat :: [String] -> [String]
--- extFormat = mapLast concat
+extFormat :: [[a]] -> [[a]]
+extFormat = putToList . concat
 
 -- IO ----------
 
@@ -114,7 +112,8 @@ create form existF makeF s = if s == ""
 
 -- Composition ----------
 
-sepChoice :: String -> ([String] -> [String])
+sepChoice, caseChoice :: String -> ([String] -> [String])
+
 sepChoice sep | eitherSep "h" "hyphenSep" = hyphenSep
               | eitherSep "s" "snakeSep"  = snakeSep
               | eitherSep "d" "dotSep"    = dotSep
@@ -123,23 +122,27 @@ sepChoice sep | eitherSep "h" "hyphenSep" = hyphenSep
               | otherwise                 = id
                 where eitherSep = eitherEq sep
 
-caseChoice :: String -> ([[String]] -> [[String]])
-caseChoice charCase | eitherEq charCase "n" "noCase"    = mapButLast $ id
-                    | eitherEq charCase "l" "lowerCase" = mapButLast $ lowerCase
-                    | eitherEq charCase "u" "upperCase" = mapButLast $ upperCase
-                    | eitherEq charCase "t" "titleCase" = mapButLast $ titleCase
-                    | eitherEq charCase "c" "camelCase" = mapButLast $ camelCase
+caseChoice charCase | eitherCase "n" "noCase"    = id
+                    | eitherCase "l" "lowerCase" = lowerCase
+                    | eitherCase "u" "upperCase" = upperCase
+                    | eitherCase "t" "titleCase" = titleCase
+                    | eitherCase "c" "camelCase" = camelCase
                     | otherwise                  = id
+                      where eitherCase = eitherEq charCase
+
+extChoice ext | null ext                  = extFormat
+              | eitherExt "e" "extFormat" = extFormat
+              | otherwise                 = sepChoice ext
+                where eitherExt = eitherEq ext
 
 createChoice :: String -> (String -> IO ())
-createChoice createOp | eitherEq createOp "t" "touch" = create "File" doesFileExist createFile
-                      | eitherEq createOp "m" "mkdir" = create "Folder" doesDirectoryExist createDirectory
-                      | otherwise                     = putId
+createChoice createOp | eitherCreate "t" "touch" = create "File" doesFileExist createFile
+                      | eitherCreate "m" "mkdir" = create "Folder" doesDirectoryExist createDirectory
+                      | otherwise                = putId -- TODO: change to error message later
+                        where eitherCreate = eitherEq createOp
 
-extFormat = mapLast (putToList . concat)
+maker createOp sep charCase ext name = createChoice createOp $ concat $ dot $ (mapButLast $ sepChoice sep) $ (mapLast $ extChoice ext) $ (mapButLast $ caseChoice charCase) $ tokens name
 
-maker createOp sep charCase name = createChoice createOp $ concat $ dot $ (mapButLast $ sepChoice sep) $ extFormat $ caseChoice charCase $ tokens name
-
-t = maker "touch" "" ""
-m = maker "mkdir" "" ""
-o = maker "other" "h" "u"
+t = maker "touch" "" "" ""
+m = maker "mkdir" "" "" ""
+o = maker "other" "h" "u" ""

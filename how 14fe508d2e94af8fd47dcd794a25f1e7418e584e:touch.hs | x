@@ -1,0 +1,95 @@
+[33mcommit 4ede7397176eb2ba0f1bf3f8a5269420d0da6960[m[33m ([m[1;36mHEAD -> [m[1;32mmaster[m[33m)[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Sun Feb 24 18:56:03 2019 +1100
+
+    working. pre: using tuple
+
+[33mcommit 3cdcb1d561db05c725db19a9854ceb056a77c266[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Sat Feb 23 11:10:52 2019 +1100
+
+    working
+
+[33mcommit 94d30d0fbeb30eda0fbf5361b2bc4f00480fc001[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Sat Feb 23 10:16:18 2019 +1100
+
+    working. pre: handling errors better
+
+[33mcommit a5e21821322776646a0289a5d676dae9b3704795[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Fri Feb 22 20:03:17 2019 +1100
+
+    pre: reverting to before generalising create
+
+[33mcommit 23510b6583ecb587958f47d89784dfea72520dd0[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Tue Feb 19 22:05:16 2019 +1100
+
+    pre: deleting touch mkDir long forms
+
+[33mcommit c1127b087696b0f7917940ad2b6ad8745ce1ed1e[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Mon Feb 18 20:48:03 2019 +1100
+
+    case and separators are working differently with tokenisation but working well. many changes completed
+
+[33mcommit f806f5c127e6a7911b5e7eb27ca234fde75b70ac[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Sun Feb 17 20:48:23 2019 +1100
+
+    some but not all cases are working
+
+[33mcommit 9be7e0efa80986367e564757e58ae397976f6fad[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Sun Feb 17 09:15:06 2019 +1100
+
+    save
+
+[33mcommit 7216759d75819bea2d9bb1620a80673c09d0b47d[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Sun Feb 17 09:14:22 2019 +1100
+
+    changed to use intersperse [String] -
+
+[33mcommit 14fe508d2e94af8fd47dcd794a25f1e7418e584e[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Sat Feb 16 21:46:34 2019 +1100
+
+    pre: using arguments instead of flags
+
+[33mcommit b078a58ce8faf272b31401142d5b832f166f2fb5[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Sat Feb 16 10:04:41 2019 +1100
+
+    pre: deleting flags
+
+[33mcommit 43766f3ea5e94bcbc68923dd6ac69a183ee221bd[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Thu Feb 14 21:17:09 2019 +1100
+
+    changed everything. doesnt use parsec now
+
+[33mcommit 578e4bc8f2b0792080ae73c6f5609d846c3f57ee[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Wed Feb 13 21:24:17 2019 +1100
+
+    during: making filename sepBy space char work
+
+[33mcommit b15328a381cb61b0e3e2802fe850ef509e1783d4[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Wed Feb 13 21:11:07 2019 +1100
+
+    made fnExt tuple fail properly and renamed
+
+[33mcommit 955afaf082c98678062dfcec76bb2ac0fc5a48cc[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Wed Feb 13 21:06:38 2019 +1100
+
+    file-extension tuple now working
+
+[33mcommit 463214ed56ce2e6324ead237f0f0090fbc370d1f[m
+Author: Benjamin <bengyup@gmail.com>
+Date:   Wed Feb 13 20:57:08 2019 +1100
+
+    file-extension tuple almost working
