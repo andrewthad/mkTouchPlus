@@ -1,26 +1,79 @@
-import Data.Char (toLower, toUpper, isSpace, isSeparator, isPunctuation)
+import Data.Char (toLower, toUpper)
 import Data.Function (on)
 import Data.List (intersperse, groupBy)
 import System.IO (writeFile)
 import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
 
+
+
+
+
+-- !!!!!!!!
+-- TODO: these dont work:
+-- o "this &#@ test   $#$   #$# #@$#@$ .   txt"
+-- o "this test#@$#@$ .   txt"
+-- solution?: generalise the typeclasses of the sanitisers (you might not need to) and then map them over the lists of chars at an earlier step
+-- !!!!!!!!
+
+
+
+
+
+
+
+-- Name:
+-- Nice Touch
+
 -- TODO: coloured output
--- TODO: user prompt to remove illegal characters from file name or otherwise skip operation
+-- leave this until end. if no other dependencies, hand-code it
+-- use terminal colour codes that change depending on the user's theme
+-- have two arguments for the colour codes to use. feed these to ioChoice
+
+-- TODO: remove illegal characters. this isn't a user prompt, it is another choice, based on arguments. multiple arguments for different OS illegal characters
+-- TODO: make it work with names without a dot. also with names preceded by a dot. you should probably use tuples now:
+-- idea (in psuedo-haskell):
+-- reverse $ toTuple x
+--     where toTuple x == (x:y,z); if x == '.' then toTuple y
+--           toTuple y == (z,x:y); toTuple y
+-- better psuedocode:
+-- fa s = fb ("","") reverse s
+--     where fb (a,b) (c:cs) = if c == '.'
+--                                then (a,b:cs)
+--                                else fb (c:a,b)
+-- TODO next: multi support
+-- multi = groupStr ','
+-- tokens = words <$> sections s <$> multi
+
+
+-- fa s = reverse $ fb ("","") (reverse s)
+--     where fb (a,b) (c:cs) = if c == '.'
+--                                then (a,b:cs)
+--                                else fb (c:a,b)
+
+-- TODO: writeFile' with path/test.txt already works. just add / as a separator so that you can strip whitespace around it?
+-- But does ../test.txt work properly?
+-- Does smart work with path/folder/ ?
+
+-- TODO later: add cp and mv functions
+
 
 -- Utilities ----------
 
 isSep :: Char -> Bool
-isSep c | isSeparator c = True | isPunctuation c = True | otherwise = False
+isSep c = (c ==) `any` " -_"
+-- TODO: make more succinct
 
 eitherEq :: (Eq a) => a -> a -> a -> Bool
 eitherEq a = (||) `on` (a ==)
 
 groupStr :: Char -> String -> [String]
 groupStr c s = let (start, end) = break (== c) s
-                in start : if null end then [] else groupStr c (tail end)
+               in  start : if null end then [] else groupStr c (tail end)
 
-groupSep :: String -> [String]
-groupSep = groupBy ((==) `on` isSep)
+seps :: String -> [String]
+seps s = if s' == "" then [] else word : seps rest
+  where s' = dropWhile isSep s
+        (word, rest) = break isSep s'
 
 mapLast, mapButLast, mapButFirst :: (a -> a) -> [a] -> [a]
 
@@ -53,7 +106,7 @@ sections :: String -> [String]
 sections = notNull . groupStr '.'
 
 tokens :: String -> [[String]]
-tokens s = words <$> sections s
+tokens s = seps <$> sections s
 
 -- Separators ----------
 
@@ -79,6 +132,30 @@ lowerCase = map $ map toLower
 upperCase = map $ map toUpper
 titleCase = map title
 camelCase = mapButFirst title
+
+-- Sanitisation ----------
+
+exclude, include :: String -> String -> String
+
+exclude s = filter (not . (`elem` s))
+include s = filter (`elem` s)
+
+control, nbsp, spaces, punctuation, separators, numbers, capitals, letters, unixEx, macEx, windowsEx, sensibleEx, conservativeIn :: String
+
+control = "\NUL" ++ ['\SOH'..'\US'] ++ "\DEL"
+nbsp = "\255"
+spaces = " " ++ nbsp
+punctuation = ['\33'..'\44'] ++ "/" ++ ['\58'..'\64'] ++ ['\91'..'\94'] ++ "`" ++ ['\123'..'\126']
+separators = "-_"
+numbers = ['\48'..'\57']
+capitals = ['\65'..'\90']
+letters = ['\97'..'\122']
+
+unixEx = "\NUL/"
+macEx = unixEx ++ ":"
+windowsEx = control ++ "\\?%*:|\"<>."
+sensibleEx = control ++ spaces ++ punctuation
+conservativeIn = separators ++ numbers ++ capitals ++ letters
 
 -- IO ----------
 
@@ -132,16 +209,27 @@ extChoice ext | null ext               = extSep
               | otherwise              = sepChoice ext
                 where eitherExt = eitherEq ext
 
+sanitiseChoice :: String -> (String -> String)
+sanitiseChoice san | eitherSan "u" "unix"         = exclude unixEx
+                   | eitherSan "w" "windows"      = exclude windowsEx
+                   | eitherSan "m" "mac"          = exclude macEx
+                   | eitherSan "s" "sensible"     = sensible
+                   | eitherSan "c" "conservative" = include conservativeIn
+                   | otherwise                    = sensible
+                     where eitherSan = eitherEq san
+                           sensible  = exclude sensibleEx
+
 createChoice :: String -> (String -> IO ())
 createChoice createOp | eitherCreate "t" "touch" = createFile
                       | eitherCreate "m" "mkdir" = createFolder
                       | eitherCreate "s" "smart" = createSmart
-                      | otherwise                = putId -- TODO: change to error message later
+                      | eitherCreate "e" "echo"  = putId
+                      | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
-maker createOp sep charCase ext name = createChoice createOp $ concat $ dot $ (mapLast $ extChoice ext) $ (mapButLast $ sepChoice sep . caseChoice charCase) $ tokens name
+maker createOp sep charCase ext san name = createChoice createOp $ (sanitiseChoice san) $ concat $ dot $ (mapLast $ extChoice ext) $ (mapButLast $ sepChoice sep . caseChoice charCase) $ tokens name
 
-t = maker "touch" "" "" ""
-m = maker "mkdir" "" "" ""
-s = maker "smart" "" "" ""
-o = maker "other" "h" "u" ""
+t = maker "touch" "" "" "" ""
+m = maker "mkdir" "" "" "" ""
+s = maker "smart" "" "" "" ""
+o = maker "echo" "h" "u" "" ""
