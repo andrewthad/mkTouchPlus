@@ -27,11 +27,6 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
 -- tokens = words <$> sections s <$> multi
 
 
--- fa s = reverse $ fb ("","") (reverse s)
---     where fb (a,b) (c:cs) = if c == '.'
---                                then (a,b:cs)
---                                else fb (c:a,b)
-
 -- TODO: writeFile' with path/test.txt already works. just add / as a separator so that you can strip whitespace around it?
 -- But does ../test.txt work properly?
 -- Does smart work with path/folder/ ?
@@ -43,7 +38,6 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
 
 isSep :: Char -> Bool
 isSep c = (c ==) `any` " -_"
--- TODO: make more succinct
 
 eitherEq :: (Eq a) => a -> a -> a -> Bool
 eitherEq a = (||) `on` (a ==)
@@ -87,6 +81,17 @@ notNull = filter (not . null)
 sections :: String -> [String]
 sections = notNull . groupStr '.'
 
+type (String, String) = (String, String)
+
+nameExt :: (String, String) -> String -> (String, String)
+nameExt (a,b) ""  = (a,b)
+nameExt (a,b) [c] = ([c],b)
+nameExt (a,b) s   = divy (a,b) backwards
+    where backwards         = reverse s
+          divy (a,b) (c:cs) = if c == '.' then (reverse cs,b)
+                                          else ext (a,c:b) cs
+          ext (a,b) s       = divy (a,b) s
+
 tokens :: String -> [[String]]
 tokens s = seps <$> sections s
 
@@ -127,7 +132,7 @@ control, nbsp, spaces, punctuation, separators, numbers, capitals, letters, unix
 control = "\NUL" ++ ['\SOH'..'\US'] ++ "\DEL"
 nbsp = "\255"
 spaces = " " ++ nbsp
-punctuation = ['\33'..'\44'] ++ "/" ++ ['\58'..'\64'] ++ ['\91'..'\94'] ++ "`" ++ ['\123'..'\126']
+punctuation = ['\33'..'\44'] ++ ['\58'..'\64'] ++ ['\91'..'\94'] ++ "`" ++ ['\123'..'\126']
 separators = "-_"
 numbers = ['\48'..'\57']
 capitals = ['\65'..'\90']
@@ -211,7 +216,10 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
 
 maker createOp sep charCase ext san name = createChoice createOp $ (sanitiseChoice san) $ concat $ dot $ (mapLast $ extChoice ext) $ (mapButLast $ sepChoice sep . caseChoice charCase) $ map notNull $ (map . map $ sanitiseChoice san) $ tokens name
 
+maker2 createOp sep charCase ext san name = (\(a,b) -> ({- extChoice ext  -}a, {- sepChoice sep . caseChoice charCase  -}b)) $ nameExt ("","") name
+
 t = maker "touch" "" "" "" ""
 m = maker "mkdir" "" "" "" ""
 s = maker "smart" "" "" "" ""
 o = maker "echo" "h" "u" "" ""
+o2 = maker2 "echo" "h" "u" "" ""
