@@ -6,25 +6,18 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
 
 -- Name:
 -- Nice Touch
+-- Stylised as: nice touch
 
 -- TODO: coloured output
 -- leave this until end. if no other dependencies, hand-code it
 -- use terminal colour codes that change depending on the user's theme
 -- have two arguments for the colour codes to use. feed these to ioChoice
 
--- TODO: make it work with names without a dot. also with names preceded by a dot. you should probably use tuples now:
--- idea (in psuedo-haskell):
--- reverse $ toTuple x
---     where toTuple x == (x:y,z); if x == '.' then toTuple y
---           toTuple y == (z,x:y); toTuple y
--- better psuedocode:
--- fa s = fb ("","") reverse s
---     where fb (a,b) (c:cs) = if c == '.'
---                                then (a,b:cs)
---                                else fb (c:a,b)
 -- TODO next: multi support
 -- multi = groupStr ','
 -- tokens = words <$> sections s <$> multi
+
+-- TODO: instead of skipping a file or folder that already exists, an alternative option is to number them automatically.
 
 
 -- TODO: writeFile' with path/test.txt already works. just add / as a separator so that you can strip whitespace around it?
@@ -32,7 +25,6 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
 -- Does smart work with path/folder/ ?
 
 -- TODO later: add cp and mv functions
-
 
 -- Utilities ----------
 
@@ -81,8 +73,6 @@ notNull = filter (not . null)
 sections :: String -> [String]
 sections = notNull . groupStr '.'
 
-type (String, String) = (String, String)
-
 nameExt :: (String, String) -> String -> (String, String)
 nameExt (a,b) ""  = (a,b)
 nameExt (a,b) [c] = ([c],b)
@@ -91,6 +81,9 @@ nameExt (a,b) s   = divy (a,b) backwards
           divy (a,b) (c:cs) = if c == '.' then (reverse cs,b)
                                           else ext (a,c:b) cs
           ext (a,b) s       = divy (a,b) s
+
+-- fNameExt :: (t -> b) -> p -> (t, t) -> (b, b)
+fNameExt fa fb (name, ext) = (fa name, fa ext)
 
 tokens :: String -> [[String]]
 tokens s = seps <$> sections s
@@ -191,10 +184,23 @@ caseChoice charCase | eitherCase "l" "lowerCase" = lowerCase
                     | otherwise                  = id
                       where eitherCase = eitherEq charCase
 
+caseChoice' charCase | eitherCase "l" "lowerCase" = map toLower
+                     | eitherCase "u" "upperCase" = map toUpper
+                     | eitherCase "t" "titleCase" = title
+                     | eitherCase "c" "camelCase" = title
+                     | eitherCase "n" "noCase"    = id
+                     | otherwise                  = id
+                      where eitherCase = eitherEq charCase
+
 extChoice ext | null ext               = extSep
               | eitherExt "e" "extSep" = extSep
               | otherwise              = sepChoice ext
                 where eitherExt = eitherEq ext
+
+-- extChoice' ext | null ext               = concat
+--                | eitherExt "e" "extSep" = concat
+--                | otherwise              = concat -- sepChoice ext
+--                 where eitherExt = eitherEq ext
 
 sanitiseChoice :: String -> (String -> String)
 sanitiseChoice san | eitherSan "u" "unix"         = exclude unixEx
@@ -216,10 +222,10 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
 
 maker createOp sep charCase ext san name = createChoice createOp $ (sanitiseChoice san) $ concat $ dot $ (mapLast $ extChoice ext) $ (mapButLast $ sepChoice sep . caseChoice charCase) $ map notNull $ (map . map $ sanitiseChoice san) $ tokens name
 
-maker2 createOp sep charCase ext san name = (\(a,b) -> ({- extChoice ext  -}a, {- sepChoice sep . caseChoice charCase  -}b)) $ nameExt ("","") name
+maker2 createOp sep charCase ext san name = fNameExt (caseChoice' charCase) id $ nameExt ("","") name
 
 t = maker "touch" "" "" "" ""
 m = maker "mkdir" "" "" "" ""
 s = maker "smart" "" "" "" ""
 o = maker "echo" "h" "u" "" ""
-o2 = maker2 "echo" "h" "u" "" ""
+o2 = maker2 "echo" "h" "t" "" ""
