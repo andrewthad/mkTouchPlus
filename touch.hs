@@ -4,10 +4,6 @@ import Data.List (intersperse, groupBy)
 import System.IO (writeFile)
 import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
 
--- Name:
--- Nice Touch
--- Stylised as: nice touch
-
 -- TODO: coloured output
 -- leave this until end. if no other dependencies, hand-code it
 -- use terminal colour codes that change depending on the user's theme
@@ -43,13 +39,8 @@ seps s = if s' == "" then [] else word : seps rest
   where s' = dropWhile isSep s
         (word, rest) = break isSep s'
 
-mapLast, mapButLast, mapButFirst :: (a -> a) -> [a] -> [a]
+mapButLast, mapButFirst :: (a -> a) -> [a] -> [a]
 
-mapLast f [] = []
-mapLast f [x] = [f x]
-mapLast f (x:xs) = x : mapLast f xs
-
-mapButLast f [] = []
 mapButLast f [x] = [x]
 mapButLast f (x:xs) = f x : mapButLast f xs
 
@@ -82,8 +73,11 @@ nameExt (a,b) s   = divy (a,b) backwards
                                           else ext (a,c:b) cs
           ext (a,b) s       = divy (a,b) s
 
--- fNameExt :: (t -> b) -> p -> (t, t) -> (b, b)
-fNameExt fa fb (name, ext) = (fa name, fa ext)
+fNameExt :: (a1 -> a2) -> (b1 -> b2) -> (a1, b1) -> (a2, b2)
+fNameExt fa fb (name, ext) = (fa name, fb ext)
+
+fDot :: (String, String) -> String
+fDot (a, b) = a ++ "." ++ b
 
 tokens :: String -> [[String]]
 tokens s = seps <$> sections s
@@ -115,10 +109,10 @@ camelCase = mapButFirst title
 
 -- Sanitisation ----------
 
-exclude, include :: String -> String -> String
+-- exclude, include :: String -> String -> String
 
-exclude s = filter (not . (`elem` s))
-include s = filter (`elem` s)
+exclude s = map $ filter (not . (`elem` s))
+include s = map $ filter (`elem` s)
 
 control, nbsp, spaces, punctuation, separators, numbers, capitals, letters, unixEx, macEx, windowsEx, sensibleEx, conservativeIn :: String
 
@@ -184,25 +178,12 @@ caseChoice charCase | eitherCase "l" "lowerCase" = lowerCase
                     | otherwise                  = id
                       where eitherCase = eitherEq charCase
 
-caseChoice' charCase | eitherCase "l" "lowerCase" = map toLower
-                     | eitherCase "u" "upperCase" = map toUpper
-                     | eitherCase "t" "titleCase" = title
-                     | eitherCase "c" "camelCase" = title
-                     | eitherCase "n" "noCase"    = id
-                     | otherwise                  = id
-                      where eitherCase = eitherEq charCase
-
 extChoice ext | null ext               = extSep
               | eitherExt "e" "extSep" = extSep
               | otherwise              = sepChoice ext
                 where eitherExt = eitherEq ext
 
--- extChoice' ext | null ext               = concat
---                | eitherExt "e" "extSep" = concat
---                | otherwise              = concat -- sepChoice ext
---                 where eitherExt = eitherEq ext
-
-sanitiseChoice :: String -> (String -> String)
+-- sanitiseChoice :: String -> (String -> String)
 sanitiseChoice san | eitherSan "u" "unix"         = exclude unixEx
                    | eitherSan "w" "windows"      = exclude windowsEx
                    | eitherSan "m" "mac"          = exclude macEx
@@ -220,12 +201,10 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
-maker createOp sep charCase ext san name = createChoice createOp $ (sanitiseChoice san) $ concat $ dot $ (mapLast $ extChoice ext) $ (mapButLast $ sepChoice sep . caseChoice charCase) $ map notNull $ (map . map $ sanitiseChoice san) $ tokens name
+maker createOp sep charCase ext san name = createChoice createOp $ fDot $ fNameExt (concat . dot . (map $ sepChoice sep . notNull . sanitiseChoice san . caseChoice charCase) <$> tokens) (concat . extChoice ext . notNull . sanitiseChoice san <$> seps) $ nameExt ("","") name
 
-maker2 createOp sep charCase ext san name = fNameExt (caseChoice' charCase) id $ nameExt ("","") name
-
-t = maker "touch" "" "" "" ""
-m = maker "mkdir" "" "" "" ""
-s = maker "smart" "" "" "" ""
-o = maker "echo" "h" "u" "" ""
-o2 = maker2 "echo" "h" "t" "" ""
+-- t = maker "touch" "" "" "" ""
+-- m = maker "mkdir" "" "" "" ""
+-- s = maker "smart" "" "" "" ""
+-- o = maker "echo" "h" "u" "" ""
+o = maker "echo" "h" "u" "l" ""
