@@ -4,6 +4,10 @@ import Data.List (intersperse, groupBy)
 import System.IO (writeFile)
 import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
 
+-- main = maker "" "" "" "" ""
+
+-- TODO: createSmart should check ext == "" (in fileExt) instead
+
 -- TODO: coloured output
 -- leave this until end. if no other dependencies, hand-code it
 -- use terminal colour codes that change depending on the user's theme
@@ -21,6 +25,8 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
 -- Does smart work with path/folder/ ?
 
 -- TODO later: add cp and mv functions
+
+-- TODO: automatic numbering of identicle files as an option. e.g. file.txt -> file2.txt etc. works great with multiplied files e.g. file.txt *3 -> file.txt, file-2.txt, file-3.txt
 
 -- Utilities ----------
 
@@ -58,26 +64,37 @@ putToList x = [x]
 
 -- Tokenisation ----------
 
-notNull :: [String] -> [String]
-notNull = filter (not . null)
+-- notNull :: Foldable t => ta -> Bool
+notNull = not . null
+
+lNotNull :: [String] -> [String]
+lNotNull = filter notNull
 
 sections :: String -> [String]
-sections = notNull . groupStr '.'
+sections = lNotNull . groupStr '.'
 
+-- TODO: tidy this up:
+-- TODO: make it accept just a string. use a massive where clause
 nameExt :: (String, String) -> String -> (String, String)
 nameExt (a,b) ""  = (a,b)
 nameExt (a,b) [c] = ([c],b)
-nameExt (a,b) s   = divy (a,b) backwards
-    where backwards         = reverse s
-          divy (a,b) (c:cs) = if c == '.' then (reverse cs,b)
-                                          else ext (a,c:b) cs
-          ext (a,b) s       = divy (a,b) s
+nameExt (a,b) s   = divy (a,b) (reverse s)
+    where divy :: (String, String) -> String -> (String, String)
+          divy (a,b) ""       = (a,b)
+          divy (a,b) x@(c:cs) = if '.' `elem` x
+                                   then if c == '.'
+                                           then (reverse x,b)
+                                           else divy (a,c:b) cs
+                                   else (reverse x,b)
 
 fNameExt :: (a1 -> a2) -> (b1 -> b2) -> (a1, b1) -> (a2, b2)
 fNameExt fa fb (name, ext) = (fa name, fb ext)
 
-fDot :: (String, String) -> String
-fDot (a, b) = a ++ "." ++ b
+nameExtDot :: (String, String) -> String
+nameExtDot ("","") = ""
+nameExtDot (a,"") = a
+nameExtDot ("",b) = b
+nameExtDot (a,b) = a ++ "." ++ b
 
 tokens :: String -> [[String]]
 tokens s = seps <$> sections s
@@ -201,7 +218,7 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
-maker createOp sep charCase ext san name = createChoice createOp $ fDot $ fNameExt (concat . dot . (map $ sepChoice sep . notNull . sanitiseChoice san . caseChoice charCase) <$> tokens) (concat . extChoice ext . notNull . sanitiseChoice san <$> seps) $ nameExt ("","") name
+maker createOp sep charCase ext san name = createChoice createOp $ nameExtDot $ fNameExt (concat . dot . (map $ sepChoice sep . lNotNull {- . sanitiseChoice san -} . caseChoice charCase) <$> tokens) (concat . extChoice ext . lNotNull {- . sanitiseChoice san -} <$> seps) $ nameExt ("","") name
 
 -- t = maker "touch" "" "" "" ""
 -- m = maker "mkdir" "" "" "" ""
