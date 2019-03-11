@@ -55,6 +55,30 @@ dotConcat acc (x:y:ys) = if x == "." || y == "."
                             then dotConcat ((x ++ y) : acc) ys
                             else dotConcat (x : y : acc) ys
 
+dotConcat' :: [String] -> [String] -> [String]
+dotConcat' acc [""]       = acc
+dotConcat' acc [x]        = x : acc
+dotConcat' acc [x, y]     = acc
+dotConcat' acc [x, y, z]  = acc
+dotConcat' acc (x:y:z:zs) = if y == "."
+                              then dotConcat ((x ++ y ++ z) : acc) zs
+                              else dotConcat (x : y : z : acc) zs
+
+-- d3 :: [String] -> [String] -> [String]
+-- d3 acc [""]       = acc
+-- d3 acc [x]        = x : acc
+-- d3 acc [x,y]      = x : y : acc
+-- d3 acc (x:y:ys)   = if x == "."
+--                        then d3 ((x ++ y) : acc) ys
+--                        else if 
+
+-- d3 acc [x, y]     = acc
+-- d3 acc [x, y, z]  = acc
+-- d3 acc (x:y:z:zs) = if y == "."
+--                               then dotConcat ((x ++ y ++ z) : acc) zs
+--                               else dotConcat (x : y : z : acc) zs
+
+
 mapButLast, mapButFirst :: (a -> a) -> [a] -> [a]
 
 mapButLast f [x] = [x]
@@ -115,6 +139,19 @@ snakeToken = intersperse "_"
 dotToken = intersperse "."
 spaceToken = intersperse " "
 extToken = putToList . concat
+
+-- dotSperse             :: String -> [String] -> [String]
+-- dotSperse _   []      = []
+-- dotSperse sep (x:xs)  = x : prependToAll sep xs
+--     where prependToAll            :: a -> [a] -> [a]
+--           prependToAll _   []     = []
+--           prependToAll sep (x:xs) = if last a == '.' || last b == '.' || head a == '.' || head b == '.'
+--               sep : x : prependToAll sep xs
+
+
+dotSperse x = foldr (\a b -> a ++ if b == "" || last a == '.' || last b == '.' || head a == '.' || head b == '.'
+                                      then b
+                                      else "-" ++ b) "" x
 
 dot :: [[String]] -> [String]
 dot = foldr (\x y -> if y == [] then x ++ y else x ++ ["."] ++ y) []
@@ -226,10 +263,9 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                         where eitherCreate = eitherEq createOp
 
 maker createOp token charCase ext san name = createChoice createOp $ nameExtDot $ fNameExt
-    (concat . tokenChoice token . lNotNull . sanitiseChoice san .  caseChoice charCase <$> tokens)
+    (concat . tokenChoice token . lNotNull . sanitiseChoice san .  caseChoice charCase <$> tokens . dotSperse . tokens)
     (concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens)
     $ nameExt ("","") name
--- TODO: function that concats '.' with the token before or after
 -- TODO: function that trims whitespace off ends
 
 -- t = maker "touch" "" "" "" ""
