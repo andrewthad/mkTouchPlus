@@ -20,7 +20,7 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
 -- TODO: instead of skipping a file or folder that already exists, an alternative option is to number them automatically.
 
 
--- TODO: writeFile' with path/test.txt already works. just add / as a separator so that you can strip whitespace around it?
+-- TODO: writeFile' with path/test.txt already works. just add / as a tokenarator so that you can strip whitespace around it?
 -- But does ../test.txt work properly?
 -- Does smart work with path/folder/ ?
 
@@ -30,8 +30,8 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
 
 -- Utilities ----------
 
-isSep :: Char -> Bool
-isSep c = (c ==) `any` " -_"
+isToken :: Char -> Bool
+isToken c = (c ==) `any` " -_"
 
 eitherEq :: (Eq a) => a -> a -> a -> Bool
 eitherEq a = (||) `on` (a ==)
@@ -40,10 +40,20 @@ groupStr :: Char -> String -> [String]
 groupStr c s = let (start, end) = break (== c) s
                in  start : if null end then [] else groupStr c (tail end)
 
-seps :: String -> [String]
-seps s = if s' == "" then [] else word : seps rest
-  where s' = dropWhile isSep s
-        (word, rest) = break isSep s'
+tokens :: String -> [String]
+tokens s = if s' == "" then [] else word : tokens rest
+  where s' = dropWhile isToken s
+        (word, rest) = break isToken s'
+
+dotConcat :: [String] -> [String] -> [String]
+dotConcat acc [""]     = acc
+dotConcat acc [x]      = x : acc
+dotConcat acc [x, y]   = if x == "." || y == "."
+                            then ((x ++ y) : acc)
+                            else x : y : acc
+dotConcat acc (x:y:ys) = if x == "." || y == "."
+                            then dotConcat ((x ++ y) : acc) ys
+                            else dotConcat (x : y : acc) ys
 
 mapButLast, mapButFirst :: (a -> a) -> [a] -> [a]
 
@@ -94,20 +104,17 @@ nameExtDot :: (String, String) -> String
 nameExtDot ("","") = ""
 nameExtDot (a,"") = a
 nameExtDot ("",b) = b
-nameExtDot (a,b) = a ++ "." ++ b
-
-tokens :: String -> [[String]]
-tokens s = seps <$> sections s
+nameExtDot (a,b) = if last a == '.' then a ++ b else a ++ "." ++ b
 
 -- Separators ----------
 
-hyphenSep, snakeSep, dotSep, extSep :: [String] -> [String]
+hyphenToken, snakeToken, dotToken, extToken :: [String] -> [String]
 
-hyphenSep = intersperse "-"
-snakeSep = intersperse "_"
-dotSep = intersperse "."
-spaceSep = intersperse " "
-extSep = putToList . concat
+hyphenToken = intersperse "-"
+snakeToken = intersperse "_"
+dotToken = intersperse "."
+spaceToken = intersperse " "
+extToken = putToList . concat
 
 dot :: [[String]] -> [String]
 dot = foldr (\x y -> if y == [] then x ++ y else x ++ ["."] ++ y) []
@@ -177,15 +184,15 @@ createSmart s = if '.' `elem` s then createFile s else createFolder s
 
 -- Composition ----------
 
-sepChoice, caseChoice, extChoice :: String -> ([String] -> [String])
+tokenChoice, caseChoice, extChoice :: String -> ([String] -> [String])
 
-sepChoice sep | eitherSep "h" "hyphenSep" = hyphenSep
-              | eitherSep "s" "snakeSep"  = snakeSep
-              | eitherSep "d" "dotSep"    = dotSep
-              | eitherSep "S" "spaceSep"  = spaceSep
-              | eitherSep "n" "noSep"     = id
+tokenChoice token | eitherToken "h" "hyphenToken" = hyphenToken
+              | eitherToken "s" "snakeToken"  = snakeToken
+              | eitherToken "d" "dotToken"    = dotToken
+              | eitherToken "S" "spaceToken"  = spaceToken
+              | eitherToken "n" "noToken"     = id
               | otherwise                 = id
-                where eitherSep = eitherEq sep
+                where eitherToken = eitherEq token
 
 caseChoice charCase | eitherCase "l" "lowerCase" = lowerCase
                     | eitherCase "u" "upperCase" = upperCase
@@ -195,9 +202,9 @@ caseChoice charCase | eitherCase "l" "lowerCase" = lowerCase
                     | otherwise                  = id
                       where eitherCase = eitherEq charCase
 
-extChoice ext | null ext               = extSep
-              | eitherExt "e" "extSep" = extSep
-              | otherwise              = sepChoice ext
+extChoice ext | null ext               = extToken
+              | eitherExt "e" "extToken" = extToken
+              | otherwise              = tokenChoice ext
                 where eitherExt = eitherEq ext
 
 -- sanitiseChoice :: String -> (String -> String)
@@ -218,7 +225,12 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
-maker createOp sep charCase ext san name = createChoice createOp $ nameExtDot $ fNameExt (concat . dot . (map $ sepChoice sep . lNotNull {- . sanitiseChoice san -} . caseChoice charCase) <$> tokens) (concat . extChoice ext . lNotNull {- . sanitiseChoice san -} <$> seps) $ nameExt ("","") name
+maker createOp token charCase ext san name = createChoice createOp $ nameExtDot $ fNameExt
+    (concat . tokenChoice token . lNotNull . sanitiseChoice san .  caseChoice charCase <$> tokens)
+    (concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens)
+    $ nameExt ("","") name
+-- TODO: function that concats '.' with the token before or after
+-- TODO: function that trims whitespace off ends
 
 -- t = maker "touch" "" "" "" ""
 -- m = maker "mkdir" "" "" "" ""
