@@ -6,8 +6,6 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
 
 -- main = maker "" "" "" "" ""
 
--- TODO: createSmart should check ext == "" (in fileExt) instead
-
 -- TODO: coloured output
 -- leave this until end. if no other dependencies, hand-code it
 -- use terminal colour codes that change depending on the user's theme
@@ -18,7 +16,6 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
 -- tokens = words <$> sections s <$> multi
 
 -- TODO: instead of skipping a file or folder that already exists, an alternative option is to number them automatically.
-
 
 -- TODO: writeFile' with path/test.txt already works. just add / as a tokenarator so that you can strip whitespace around it?
 -- But does ../test.txt work properly?
@@ -45,39 +42,8 @@ tokens s = if s' == "" then [] else word : tokens rest
   where s' = dropWhile isToken s
         (word, rest) = break isToken s'
 
-dotConcat :: [String] -> [String] -> [String]
-dotConcat acc [""]     = acc
-dotConcat acc [x]      = x : acc
-dotConcat acc [x, y]   = if x == "." || y == "."
-                            then ((x ++ y) : acc)
-                            else x : y : acc
-dotConcat acc (x:y:ys) = if x == "." || y == "."
-                            then dotConcat ((x ++ y) : acc) ys
-                            else dotConcat (x : y : acc) ys
-
-dotConcat' :: [String] -> [String] -> [String]
-dotConcat' acc [""]       = acc
-dotConcat' acc [x]        = x : acc
-dotConcat' acc [x, y]     = acc
-dotConcat' acc [x, y, z]  = acc
-dotConcat' acc (x:y:z:zs) = if y == "."
-                              then dotConcat ((x ++ y ++ z) : acc) zs
-                              else dotConcat (x : y : z : acc) zs
-
--- d3 :: [String] -> [String] -> [String]
--- d3 acc [""]       = acc
--- d3 acc [x]        = x : acc
--- d3 acc [x,y]      = x : y : acc
--- d3 acc (x:y:ys)   = if x == "."
---                        then d3 ((x ++ y) : acc) ys
---                        else if 
-
--- d3 acc [x, y]     = acc
--- d3 acc [x, y, z]  = acc
--- d3 acc (x:y:z:zs) = if y == "."
---                               then dotConcat ((x ++ y ++ z) : acc) zs
---                               else dotConcat (x : y : z : acc) zs
-
+multi :: String -> [String]
+multi = groupStr ','
 
 mapButLast, mapButFirst :: (a -> a) -> [a] -> [a]
 
@@ -140,15 +106,7 @@ dotToken = intersperse "."
 spaceToken = intersperse " "
 extToken = putToList . concat
 
--- dotSperse             :: String -> [String] -> [String]
--- dotSperse _   []      = []
--- dotSperse sep (x:xs)  = x : prependToAll sep xs
---     where prependToAll            :: a -> [a] -> [a]
---           prependToAll _   []     = []
---           prependToAll sep (x:xs) = if last a == '.' || last b == '.' || head a == '.' || head b == '.'
---               sep : x : prependToAll sep xs
-
-
+dotSperse :: Foldable t => t [Char] -> [Char]
 dotSperse x = foldr (\a b -> a ++ if b == "" || last a == '.' || last b == '.' || head a == '.' || head b == '.'
                                       then b
                                       else "-" ++ b) "" x
@@ -262,11 +220,10 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
-maker createOp token charCase ext san name = createChoice createOp $ nameExtDot $ fNameExt
-    (concat . tokenChoice token . lNotNull . sanitiseChoice san .  caseChoice charCase <$> tokens . dotSperse . tokens)
+maker createOp token charCase ext san name = {- createChoice createOp $ nameExtDot $ -} fNameExt
+    (\x -> concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice charCase <$> tokens . dotSperse . tokens <$> multi x)
     (concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens)
     $ nameExt ("","") name
--- TODO: function that trims whitespace off ends
 
 -- t = maker "touch" "" "" "" ""
 -- m = maker "mkdir" "" "" "" ""
