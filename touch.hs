@@ -6,24 +6,18 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
 
 -- main = maker "" "" "" "" ""
 
+-- TODO: make nameExt accept just a string. use a massive where clause
+
 -- TODO: coloured output
 -- leave this until end. if no other dependencies, hand-code it
 -- use terminal colour codes that change depending on the user's theme
 -- have two arguments for the colour codes to use. feed these to ioChoice
 
--- TODO next: multi support
--- multi = groupStr ','
--- tokens = words <$> sections s <$> multi
-
--- TODO: instead of skipping a file or folder that already exists, an alternative option is to number them automatically.
-
--- TODO: writeFile' with path/test.txt already works. just add / as a tokenarator so that you can strip whitespace around it?
+-- TODO: writeFile' with path/test.txt already works. just add / into dotSperse so that you can strip whitespace around it?
 -- But does ../test.txt work properly?
 -- Does smart work with path/folder/ ?
 
--- TODO later: add cp and mv functions
-
--- TODO: automatic numbering of identicle files as an option. e.g. file.txt -> file2.txt etc. works great with multiplied files e.g. file.txt *3 -> file.txt, file-2.txt, file-3.txt
+-- TODO: use this instead of nested ifs? func1 arg <|> func2 arg <|> func3 arg <|> func4 arg
 
 -- Utilities ----------
 
@@ -64,7 +58,7 @@ putToList x = [x]
 
 -- Tokenisation ----------
 
--- notNull :: Foldable t => ta -> Bool
+notNull :: [a] -> Bool
 notNull = not . null
 
 lNotNull :: [String] -> [String]
@@ -73,8 +67,6 @@ lNotNull = filter notNull
 sections :: String -> [String]
 sections = lNotNull . groupStr '.'
 
--- TODO: tidy this up:
--- TODO: make it accept just a string. use a massive where clause
 nameExt :: (String, String) -> String -> (String, String)
 nameExt (a,b) ""  = (a,b)
 nameExt (a,b) [c] = ([c],b)
@@ -153,7 +145,7 @@ conservativeIn = separators ++ numbers ++ capitals ++ letters
 -- IO ----------
 
 msg :: String -> String -> String -> IO ()
-msg op form s = putId $ take 14 (op ++ " " ++ form) ++ ": " ++ s
+msg op form s = putId $ take 16 (op ++ " " ++ form ++ ":" ++ repeat ' ') ++ s
 
 createMsg, skipMsg :: String -> String -> IO ()
 
@@ -169,7 +161,6 @@ create form existF makeF s = if s == ""
                                            else do
                                                makeF s
                                                createMsg form ("'" ++ s ++ "'")
--- TODO: use this instead? func1 arg <|> func2 arg <|> func3 arg <|> func4 arg
 
 createFile, createFolder, createSmart :: String -> IO ()
 
@@ -220,13 +211,13 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
-maker createOp token charCase ext san name = {- createChoice createOp $ nameExtDot $ -} fNameExt
-    (\x -> concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice charCase <$> tokens . dotSperse . tokens <$> multi x)
+maker createOp token charCase ext san name = mapM_ (createChoice createOp) (nameExtDot . fNameExt
+    (concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice charCase <$> tokens)
     (concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens)
-    $ nameExt ("","") name
+    . nameExt ("","") <$> multi name)
 
 -- t = maker "touch" "" "" "" ""
 -- m = maker "mkdir" "" "" "" ""
 -- s = maker "smart" "" "" "" ""
 -- o = maker "echo" "h" "u" "" ""
-o = maker "echo" "h" "u" "l" ""
+o = maker "echo" "h" "c" "l" ""
