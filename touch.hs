@@ -1,3 +1,4 @@
+import Control.Applicative (liftA2)
 import Data.Char (toLower, toUpper)
 import Data.Function (on)
 import Data.List (intersperse, groupBy)
@@ -6,14 +7,7 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
 
 -- main = maker "" "" "" "" ""
 
--- TODO: make nameExt accept just a string. use a massive where clause
-
--- TODO: coloured output
--- leave this until end. if no other dependencies, hand-code it
--- use terminal colour codes that change depending on the user's theme
--- have two arguments for the colour codes to use. feed these to ioChoice
-
--- TODO: writeFile' with path/test.txt already works. just add / into dotSperse so that you can strip whitespace around it?
+-- TODO:
 -- But does ../test.txt work properly?
 -- Does smart work with path/folder/ ?
 
@@ -39,15 +33,6 @@ tokens s = if s' == "" then [] else word : tokens rest
 multi :: String -> [String]
 multi = groupStr ','
 
-mapButLast, mapButFirst :: (a -> a) -> [a] -> [a]
-
-mapButLast f [x] = [x]
-mapButLast f (x:xs) = f x : mapButLast f xs
-
-mapButFirst f [] = []
-mapButFirst f [x] = [x]
-mapButFirst f (x:xs) = x : map f xs
-
 putId, writeFile' :: String -> IO ()
 
 putId = putStrLn . id
@@ -55,6 +40,9 @@ writeFile' s = writeFile s ""
 
 putToList :: a -> [a]
 putToList x = [x]
+
+anyEq :: Eq a => [a] -> [a] -> Bool
+anyEq x y = any id $ liftA2 (==) x y
 
 -- Tokenisation ----------
 
@@ -92,16 +80,17 @@ nameExtDot (a,b) = if last a == '.' then a ++ b else a ++ "." ++ b
 
 hyphenToken, snakeToken, dotToken, extToken :: [String] -> [String]
 
-hyphenToken = intersperse "-"
-snakeToken = intersperse "_"
-dotToken = intersperse "."
-spaceToken = intersperse " "
+hyphenToken = interSep "-"
+snakeToken = interSep "_"
+dotToken = interSep "."
+spaceToken = interSep " "
 extToken = putToList . concat
 
-dotSperse :: Foldable t => t [Char] -> [Char]
-dotSperse x = foldr (\a b -> a ++ if b == "" || last a == '.' || last b == '.' || head a == '.' || head b == '.'
-                                      then b
-                                      else "-" ++ b) "" x
+interSep :: String -> [String] -> [String]
+interSep sep [x] = [x]
+interSep sep (x:yz@(y:z)) = if [last x, head y] `anyEq` "./"
+                               then x : interSep sep yz
+                               else x : sep : interSep sep yz
 
 dot :: [[String]] -> [String]
 dot = foldr (\x y -> if y == [] then x ++ y else x ++ ["."] ++ y) []
@@ -115,8 +104,12 @@ lowerCase, upperCase, titleCase, camelCase :: [String] -> [String]
 
 lowerCase = map $ map toLower
 upperCase = map $ map toUpper
+
 titleCase = map title
-camelCase = mapButFirst title
+
+camelCase [] = []
+camelCase [x] = [x]
+camelCase (x:xs) = x : map title xs
 
 -- Sanitisation ----------
 
@@ -144,13 +137,20 @@ conservativeIn = separators ++ numbers ++ capitals ++ letters
 
 -- IO ----------
 
-msg :: String -> String -> String -> IO ()
-msg op form s = putId $ take 16 (op ++ " " ++ form ++ ":" ++ repeat ' ') ++ s
+color :: Int -> String -> String
+color n s = "\x1b[" ++ show n ++ "m" ++ s ++ "\x1b[0m"
+
+green, red :: String -> String
+green = color 32
+red = color 31
+
+msg :: String -> (String -> String) -> String -> String -> IO ()
+msg op color form s = putId $ color (take 16 $ op ++ " " ++ form ++ ":" ++ repeat ' ') ++ s
 
 createMsg, skipMsg :: String -> String -> IO ()
 
-createMsg op s = msg op "Created" s
-skipMsg op s = msg op "Skipped" s
+createMsg op s = msg op green "Created" s
+skipMsg op s = msg op red "Skipped" s
 
 create :: String -> (String -> IO Bool) -> (String -> IO ()) -> String -> IO ()
 create form existF makeF s = if s == ""
@@ -211,7 +211,7 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
-maker createOp token charCase ext san name = mapM_ (createChoice createOp) (nameExtDot . fNameExt
+maker createOp token charCase ext san name = (createChoice createOp) `mapM_` (nameExtDot . fNameExt
     (concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice charCase <$> tokens)
     (concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens)
     . nameExt ("","") <$> multi name)
@@ -220,4 +220,4 @@ maker createOp token charCase ext san name = mapM_ (createChoice createOp) (name
 -- m = maker "mkdir" "" "" "" ""
 -- s = maker "smart" "" "" "" ""
 -- o = maker "echo" "h" "u" "" ""
-o = maker "echo" "h" "c" "l" ""
+o = maker "smart" "h" "c" "l" ""
