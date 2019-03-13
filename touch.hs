@@ -1,17 +1,22 @@
+import Control.Arrow   -- (&&&)
 import Control.Applicative (liftA2)
 import Data.Char (toLower, toUpper)
 import Data.Function (on)
-import Data.List (intersperse, groupBy)
+import Data.List (intersperse, groupBy, intercalate)
 import System.IO (writeFile)
-import System.Directory (createDirectory, doesDirectoryExist, doesFileExist)
+import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, setCurrentDirectory)
 
 -- main = maker "" "" "" "" ""
 
--- TODO:
+-- TODO: create folders if they dont exist automatically. e.g. s "test/this/thing.txt". You will need to modify the create function
 -- But does ../test.txt work properly?
 -- Does smart work with path/folder/ ?
 
+-- TODO: if no string is provided for filename/s input, then it should accept from stInput. This allows piping?
+
 -- TODO: use this instead of nested ifs? func1 arg <|> func2 arg <|> func3 arg <|> func4 arg
+
+-- TODO: tidy up all code at the end
 
 -- Utilities ----------
 
@@ -21,9 +26,9 @@ isToken c = (c ==) `any` " -_"
 eitherEq :: (Eq a) => a -> a -> a -> Bool
 eitherEq a = (||) `on` (a ==)
 
-groupStr :: Char -> String -> [String]
-groupStr c s = let (start, end) = break (== c) s
-               in  start : if null end then [] else groupStr c (tail end)
+splitWith :: Char -> String -> [String]
+splitWith c s = let (start, end) = break (== c) s
+               in  start : if null end then [] else splitWith c (tail end)
 
 tokens :: String -> [String]
 tokens s = if s' == "" then [] else word : tokens rest
@@ -31,7 +36,7 @@ tokens s = if s' == "" then [] else word : tokens rest
         (word, rest) = break isToken s'
 
 multi :: String -> [String]
-multi = groupStr ','
+multi = splitWith ','
 
 putId, writeFile' :: String -> IO ()
 
@@ -53,19 +58,37 @@ lNotNull :: [String] -> [String]
 lNotNull = filter notNull
 
 sections :: String -> [String]
-sections = lNotNull . groupStr '.'
+sections = lNotNull . splitWith '.'
 
-nameExt :: (String, String) -> String -> (String, String)
-nameExt (a,b) ""  = (a,b)
-nameExt (a,b) [c] = ([c],b)
-nameExt (a,b) s   = divy (a,b) (reverse s)
-    where divy :: (String, String) -> String -> (String, String)
-          divy (a,b) ""       = (a,b)
-          divy (a,b) x@(c:cs) = if '.' `elem` x
-                                   then if c == '.'
-                                           then (reverse x,b)
-                                           else divy (a,c:b) cs
-                                   else (reverse x,b)
+-- nameExt :: (String, String) -> String -> (String, String)
+-- nameExt (a,b) ""  = (a,b)
+-- nameExt (a,b) [c] = ([c],b)
+-- nameExt (a,b) s   = divy (a,b) (reverse s)
+--     where divy :: (String, String) -> String -> (String, String)
+--           divy (a,b) ""       = (a,b)
+--           divy (a,b) x@(c:cs) = if '.' `elem` x
+--                                    then if c == '.'
+--                                            then (reverse x,b)
+--                                            else divy (a,c:b) cs
+--                                    else (reverse x,b)
+
+-- pathFile :: String -> (String, String)
+-- pathFile = foldr splitPath ("","")
+--     where splitPath c = if c == 
+--
+-- import Data.List       -- intercalate
+-- import Data.List.Split -- splitOn
+-- breakOnLast :: Eq a => a -> [a] -> ([a], [a])
+-- breakOnLast x = (intercalate x . init &&& last) . splitOn x
+
+splitLast :: Char -> String -> (String, String)
+splitLast c = (intercalate [c] . init &&& last) . splitWith c
+
+nameExt, pathFile :: String -> (String, String)
+nameExt = splitLast '.'
+pathFile = splitLast '/'
+
+-- pathFile x = (intercalate x . init &&& last) . splitWith (head x)
 
 fNameExt :: (a1 -> a2) -> (b1 -> b2) -> (a1, b1) -> (a2, b2)
 fNameExt fa fb (name, ext) = (fa name, fb ext)
@@ -87,10 +110,10 @@ spaceToken = interSep " "
 extToken = putToList . concat
 
 interSep :: String -> [String] -> [String]
-interSep sep [x] = [x]
-interSep sep (x:yz@(y:z)) = if [last x, head y] `anyEq` "./"
-                               then x : interSep sep yz
-                               else x : sep : interSep sep yz
+interSep sep [x]          = [x]
+interSep sep (x:xs@(y:z)) = if [last x, head y] `anyEq` "./"
+                               then x : interSep sep xs
+                               else x : sep : interSep sep xs
 
 dot :: [[String]] -> [String]
 dot = foldr (\x y -> if y == [] then x ++ y else x ++ ["."] ++ y) []
@@ -137,35 +160,57 @@ conservativeIn = separators ++ numbers ++ capitals ++ letters
 
 -- IO ----------
 
-color :: Int -> String -> String
-color n s = "\x1b[" ++ show n ++ "m" ++ s ++ "\x1b[0m"
+ansiCode :: Int -> String
+ansiCode n = "\x1b["  ++ show n ++ "m"
 
-green, red :: String -> String
-green = color 32
-red = color 31
+reset :: String
+reset = ansiCode 0
+
+colorStr :: Int -> String -> String
+colorStr n s = ansiCode n ++ s ++ reset
+
+toGreen, toRed :: String -> String
+toGreen = colorStr 32
+toRed = colorStr 31
+toMagenta = colorStr 35
 
 msg :: String -> (String -> String) -> String -> String -> IO ()
-msg op color form s = putId $ color (take 16 $ op ++ " " ++ form ++ ":" ++ repeat ' ') ++ s
+msg form color op s = putId $ color (take 16 $ title form ++ " " ++ op ++ ":" ++ repeat ' ') ++ s
 
 createMsg, skipMsg :: String -> String -> IO ()
 
-createMsg op s = msg op green "Created" s
-skipMsg op s = msg op red "Skipped" s
+createMsg op s = msg op toGreen "Created" s
+skipMsg op s = msg op toRed "Skipped" s
 
 create :: String -> (String -> IO Bool) -> (String -> IO ()) -> String -> IO ()
 create form existF makeF s = if s == ""
-                                then skipMsg form ("No " ++ form ++ " name provided.")
+                                then prompt form makeF
                                 else do exists <- existF s
                                         if exists
-                                           then skipMsg form ("The " ++ form ++ " '" ++ s ++ "' already exists, but it hasn't been overwritten by this operation")
-                                           else do
-                                               makeF s
-                                               createMsg form ("'" ++ s ++ "'")
+                                           then skip form s
+                                           else make form makeF s
+
+skip :: String -> String -> IO ()
+skip form s = skipMsg form ("The " ++ form ++ " " ++ toMagenta s ++ " already exists, but it hasn't been overwritten by this operation")
+
+make :: String -> (String -> IO ()) -> String -> IO ()
+make form makeF s = do
+    makeF s
+    createMsg form (toMagenta s)
+
+prompt :: String -> (String -> IO ()) -> IO ()
+prompt form makeF = do
+    putStrLn "Please enter a filename:"
+    s <- getLine
+    make form makeF s
+
+mkDirp :: String -> IO ()
+mkDirp path = (\x -> createDirectory x >> setCurrentDirectory x) `mapM_` (splitWith '/' path)
 
 createFile, createFolder, createSmart :: String -> IO ()
 
-createFile = create "File" doesFileExist writeFile'
-createFolder = create "Folder" doesDirectoryExist createDirectory
+createFile = create "file" doesFileExist writeFile'
+createFolder = create "folder" doesDirectoryExist createDirectory
 createSmart s = if '.' `elem` s then createFile s else createFolder s
 
 -- Composition ----------
@@ -211,13 +256,11 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
-maker createOp token charCase ext san name = (createChoice createOp) `mapM_` (nameExtDot . fNameExt
-    (concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice charCase <$> tokens)
+maker createOp token charCase ext san name = {- (createChoice createOp) `mapM_` -} ({- nameExtDot . -} fNameExt
+    ({- concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice charCase <$> -} tokens)
     (concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens)
-    . nameExt ("","") <$> multi name)
+    . nameExt <$> multi name)
 
--- t = maker "touch" "" "" "" ""
--- m = maker "mkdir" "" "" "" ""
--- s = maker "smart" "" "" "" ""
--- o = maker "echo" "h" "u" "" ""
-o = maker "smart" "h" "c" "l" ""
+o = maker "" "" "" "" ""
+e = maker "echo" "h" "u" "" ""
+s = maker "smart" "h" "c" "l" ""
