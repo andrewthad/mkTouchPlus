@@ -1,10 +1,12 @@
-import Control.Arrow   -- (&&&)
+import Control.Arrow
+import Data.Function ((&))
+-- import Control.Monad
 import Control.Applicative (liftA2)
 import Data.Char (toLower, toUpper)
 import Data.Function (on)
 import Data.List (intersperse, groupBy, intercalate)
 import System.IO (writeFile)
-import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, setCurrentDirectory)
+import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, setCurrentDirectory, getCurrentDirectory)
 
 -- main = maker "" "" "" "" ""
 
@@ -12,11 +14,7 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, set
 -- But does ../test.txt work properly?
 -- Does smart work with path/folder/ ?
 
--- TODO: if no string is provided for filename/s input, then it should accept from stInput. This allows piping?
-
 -- TODO: use this instead of nested ifs? func1 arg <|> func2 arg <|> func3 arg <|> func4 arg
-
--- TODO: tidy up all code at the end
 
 -- Utilities ----------
 
@@ -60,44 +58,24 @@ lNotNull = filter notNull
 sections :: String -> [String]
 sections = lNotNull . splitWith '.'
 
--- nameExt :: (String, String) -> String -> (String, String)
--- nameExt (a,b) ""  = (a,b)
--- nameExt (a,b) [c] = ([c],b)
--- nameExt (a,b) s   = divy (a,b) (reverse s)
---     where divy :: (String, String) -> String -> (String, String)
---           divy (a,b) ""       = (a,b)
---           divy (a,b) x@(c:cs) = if '.' `elem` x
---                                    then if c == '.'
---                                            then (reverse x,b)
---                                            else divy (a,c:b) cs
---                                    else (reverse x,b)
-
--- pathFile :: String -> (String, String)
--- pathFile = foldr splitPath ("","")
---     where splitPath c = if c == 
---
--- import Data.List       -- intercalate
--- import Data.List.Split -- splitOn
--- breakOnLast :: Eq a => a -> [a] -> ([a], [a])
--- breakOnLast x = (intercalate x . init &&& last) . splitOn x
-
 splitLast :: Char -> String -> (String, String)
 splitLast c = (intercalate [c] . init &&& last) . splitWith c
 
 nameExt, pathFile :: String -> (String, String)
-nameExt = splitLast '.'
+nameExt s = let sep = '.' in if sep `elem` s then splitLast sep s else (s,"")
 pathFile = splitLast '/'
 
--- pathFile x = (intercalate x . init &&& last) . splitWith (head x)
+pathNameExt :: String -> (String, String, String)
+pathNameExt s = nameExt `second` pathFile s & \(a,(b,c)) -> (a,b,c)
 
-fNameExt :: (a1 -> a2) -> (b1 -> b2) -> (a1, b1) -> (a2, b2)
-fNameExt fa fb (name, ext) = (fa name, fb ext)
+modSplit :: (a1 -> a2) -> (b1 -> b2) -> (a1, b1) -> (a2, b2)
+modSplit fa fb (name, ext) = (fa name, fb ext)
 
-nameExtDot :: (String, String) -> String
-nameExtDot ("","") = ""
-nameExtDot (a,"") = a
-nameExtDot ("",b) = b
-nameExtDot (a,b) = if last a == '.' then a ++ b else a ++ "." ++ b
+splitDot :: (String, String) -> String
+splitDot ("","") = ""
+splitDot (a,"") = a
+splitDot ("",b) = b
+splitDot (a,b) = if last a == '.' then a ++ b else a ++ "." ++ b
 
 -- Separators ----------
 
@@ -205,7 +183,11 @@ prompt form makeF = do
     make form makeF s
 
 mkDirp :: String -> IO ()
-mkDirp path = (\x -> createDirectory x >> setCurrentDirectory x) `mapM_` (splitWith '/' path)
+mkDirp path = do
+    origDir <- getCurrentDirectory
+    if notNull path
+                 then (\x -> createDirectory x >> setCurrentDirectory x) `mapM_` (splitWith '/' path) >> setCurrentDirectory origDir >> putStrLn "Should print proper Created Directory msg"
+                 else return ()
 
 createFile, createFolder, createSmart :: String -> IO ()
 
@@ -256,11 +238,21 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
-maker createOp token charCase ext san name = {- (createChoice createOp) `mapM_` -} ({- nameExtDot . -} fNameExt
-    ({- concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice charCase <$> -} tokens)
+maker createOp token charCase ext san name = {- (createChoice createOp) `mapM_` -} ({- splitDot . -} modSplit
+    ({- concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice charCase <$> -} fmap (modSplit mkDirp id . pathFile) . tokens)
     (concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens)
     . nameExt <$> multi name)
 
 o = maker "" "" "" "" ""
 e = maker "echo" "h" "u" "" ""
 s = maker "smart" "h" "c" "l" ""
+
+maker' op token char ext san name = id $ (nameF *** extF) <$> nameExt <$> multi name
+    where nameF = \s -> pathFile <$> tokens s
+          extF = concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens
+          creator x = sequence_ [putStrLn b | (a,b) <- x]
+          -- TODO: use 3tuples instead
+          -- (path, name, ext)
+          -- triApply fa fb fc (a, b, c) = (fa a, fb b, fc c)
+
+e' = maker' "echo" "h" "u" "" ""
