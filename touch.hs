@@ -68,6 +68,9 @@ pathFile = splitLast '/'
 pathNameExt :: String -> (String, String, String)
 pathNameExt s = nameExt `second` pathFile s & \(a,(b,c)) -> (a,b,c)
 
+triApply :: (t1 -> a) -> (t2 -> b) -> (t3 -> c) -> (t1, t2, t3) -> (a, b, c)
+triApply fa fb fc (a, b, c) = (fa a, fb b, fc c)
+
 modSplit :: (a1 -> a2) -> (b1 -> b2) -> (a1, b1) -> (a2, b2)
 modSplit fa fb (name, ext) = (fa name, fb ext)
 
@@ -76,6 +79,12 @@ splitDot ("","") = ""
 splitDot (a,"") = a
 splitDot ("",b) = b
 splitDot (a,b) = if last a == '.' then a ++ b else a ++ "." ++ b
+
+nameExtDot :: String -> String -> String
+nameExtDot "" "" = ""
+nameExtDot a "" = a
+nameExtDot "" b = b
+nameExtDot a b = if last a == '.' then a ++ b else a ++ "." ++ b
 
 -- Separators ----------
 
@@ -238,21 +247,32 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
-maker createOp token charCase ext san name = {- (createChoice createOp) `mapM_` -} ({- splitDot . -} modSplit
-    ({- concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice charCase <$> -} fmap (modSplit mkDirp id . pathFile) . tokens)
-    (concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens)
-    . nameExt <$> multi name)
+maker op token char ext san name = creator $ triApply pathF nameF extF <$> pathNameExt <$> multi name
+    where pathF = id
+          nameF = concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice char <$> tokens
+          extF  = concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens
+          creator x = sequence_ [io p n e | (p,n,e) <- x]
+          io p n e = do
+              mkDirp p
+              createChoice op (nameExtDot n e)
+              return ()
+
+          -- TODO: combine mkDirp and createChoice so that the file is made within the directory
+          -- TODO: move mkDirp's formatting into pathF
+          -- TODO: move getLine from create into a maker pattern match
+          -- maker op token char ext san "" = ... getLine
+          -- maker op token char ext san name = ...
 
 o = maker "" "" "" "" ""
 e = maker "echo" "h" "u" "" ""
 s = maker "smart" "h" "c" "l" ""
 
-maker' op token char ext san name = id $ (nameF *** extF) <$> nameExt <$> multi name
-    where nameF = \s -> pathFile <$> tokens s
-          extF = concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens
-          creator x = sequence_ [putStrLn b | (a,b) <- x]
-          -- TODO: use 3tuples instead
-          -- (path, name, ext)
-          -- triApply fa fb fc (a, b, c) = (fa a, fb b, fc c)
+-- maker createOp token charCase ext san name = {- (createChoice createOp) `mapM_` -} ({- splitDot . -} modSplit
+--     ({- concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice charCase <$> -} fmap (modSplit mkDirp id . pathFile) . tokens)
+--     (concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens)
+--     . nameExt <$> multi name)
 
-e' = maker' "echo" "h" "u" "" ""
+-- maker' op token char ext san name = id $ (nameF *** extF) <$> nameExt <$> multi name
+--     where nameF = \s -> pathFile <$> tokens s
+--           extF = concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens
+--           creator x = sequence_ [putStrLn b | (a,b) <- x]
