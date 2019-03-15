@@ -223,15 +223,26 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
--- mkDirp :: [String] -> IO ()
-mkDirp [""] = return ()
-mkDirp [x] = mk x [""]
-mkDirp (x:xs) = mk x xs
 
-mk (x:[]) xs = doesDirectoryExist x
-             >>= \exists -> if exists && notNull x
-                               then skipMsg "path" (toMagenta (x ++ "/" ++ xs ++ "/"))
-                               else createDirectory x >> setCurrentDirectory x >> mkDirp xs
+
+mkDirp path = mk `mapM_` path
+    where mk s = do exists <- doesDirectoryExist s
+                    if not exists
+                       then do createDirectory x
+                               setCurrentDirectory x
+                               mkDirp xs
+                       else skipMsg "path" (toMagenta (intercalate "/" s ++ "/"))
+
+
+-- mkDirp path = mk `mapM_` path
+--     where mk s = do exists <- doesDirectoryExist s
+--                     putId $ show exists
+
+
+
+-- mkDirp [""] = return ()
+-- mkDirp z@(x:xs) = doesDirectoryExist x >>= \exists -> if not exists then createDirectory x >> setCurrentDirectory x >> mkDirp xs else skipMsg "path" (toMagenta (intercalate "/" z ++ "/"))
+
 
 
 -- mkDirp path = mk `mapM_` path
