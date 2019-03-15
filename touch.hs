@@ -8,13 +8,9 @@ import Data.List (intersperse, groupBy, intercalate)
 import System.IO (writeFile)
 import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, setCurrentDirectory, getCurrentDirectory)
 
--- main = maker "" "" "" "" ""
+main = input "" "" "" "" ""
 
--- TODO: create folders if they dont exist automatically. e.g. s "test/this/thing.txt". You will need to modify the create function
--- But does ../test.txt work properly?
--- Does smart work with path/folder/ ?
-
--- TODO: use this instead of nested ifs? func1 arg <|> func2 arg <|> func3 arg <|> func4 arg
+-- TODO: colour folders/paths and files in different colours
 
 -- Utilities ----------
 
@@ -172,13 +168,8 @@ skipMsg op s = msg op toRed "Skipped" s
 skip :: String -> String -> IO ()
 skip form s = skipMsg form ("The " ++ form ++ " " ++ toMagenta s ++ " already exists, but it hasn't been overwritten by this operation")
 
-createFile, createFolder, createSmart :: String -> IO ()
-
-createFile = create "file" doesFileExist writeFile'
-createFolder = create "folder" doesDirectoryExist createDirectory
-
 createSmart "" = return ()
-createSmart s = if '.' `elem` s then createFile s else createFolder s
+createSmart s = if '.' `elem` s then writeFile' s else createDirectory s
 
 -- Composition ----------
 
@@ -216,52 +207,27 @@ sanitiseChoice san | eitherSan "u" "unix"         = exclude unixEx
                            sensible  = exclude sensibleEx
 
 createChoice :: String -> (String -> IO ())
-createChoice createOp | eitherCreate "t" "touch" = createFile
-                      | eitherCreate "m" "mkdir" = createFolder
+createChoice createOp | eitherCreate "t" "touch" = writeFile'
+                      | eitherCreate "m" "mkdir" = createDirectory
                       | eitherCreate "s" "smart" = createSmart
                       | eitherCreate "e" "echo"  = putId
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
 
+mkDirp [""] = return ()
+mkDirp [x] = mk x [""]
+mkDirp z@(x:xs) = do exists <- doesDirectoryExist x
+                     if not exists
+                        then mk x xs
+                        else skipMsg "path" (toMagenta (intercalate "/" z ++ "/"))
 
-mkDirp path = mk `mapM_` path
-    where mk s = do exists <- doesDirectoryExist s
-                    if not exists
-                       then do createDirectory x
-                               setCurrentDirectory x
-                               mkDirp xs
-                       else skipMsg "path" (toMagenta (intercalate "/" s ++ "/"))
+mk "" [""] = return ()
+mk x [""] = createStep x
+mk x [y] = createStep x >> mk y [""]
+mk x (y:ys) = createStep x >> mk y ys
 
-
--- mkDirp path = mk `mapM_` path
---     where mk s = do exists <- doesDirectoryExist s
---                     putId $ show exists
-
-
-
--- mkDirp [""] = return ()
--- mkDirp z@(x:xs) = doesDirectoryExist x >>= \exists -> if not exists then createDirectory x >> setCurrentDirectory x >> mkDirp xs else skipMsg "path" (toMagenta (intercalate "/" z ++ "/"))
-
-
-
--- mkDirp path = mk `mapM_` path
---     where mk s = do exists <- doesDirectoryExist s
---                     putId $ show exists
-                    -- if exists || notNull s
-                    --    then createDirectory s >> setCurrentDirectory s
-                    --    else skipMsg "path" (toMagenta s)
-
-make :: String -> (String -> IO ()) -> String -> IO ()
-make form makeF s = do
-    makeF s
-    createMsg form (toMagenta s)
-
-create :: String -> (String -> IO Bool) -> (String -> IO ()) -> String -> IO ()
-create form existF makeF s = do exists <- existF s
-                                if not exists
-                                   then make form makeF s
-                                   else skip form s
+createStep x = createDirectory x >> setCurrentDirectory x
 
 input op token char ext san = do
     putStrLn "Enter a path:"
@@ -276,8 +242,7 @@ output p n e op = let neS = nameExtDot n e
                         else do
                             origDir <- getCurrentDirectory
                             mkDirp p
-                            putStrLn neS
-                            -- createChoice op neS
+                            createChoice op neS
                             createMsg "path" (toMagenta $ nepS)
                             setCurrentDirectory origDir
                             return ()
