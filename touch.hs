@@ -169,39 +169,15 @@ createMsg, skipMsg :: String -> String -> IO ()
 createMsg op s = msg op toGreen "Created" s
 skipMsg op s = msg op toRed "Skipped" s
 
-create :: String -> (String -> IO Bool) -> (String -> IO ()) -> String -> IO ()
-create form existF makeF s = if s == ""
-                                then prompt form makeF
-                                else do exists <- existF s
-                                        if exists
-                                           then skip form s
-                                           else make form makeF s
-
 skip :: String -> String -> IO ()
 skip form s = skipMsg form ("The " ++ form ++ " " ++ toMagenta s ++ " already exists, but it hasn't been overwritten by this operation")
-
-make :: String -> (String -> IO ()) -> String -> IO ()
-make form makeF s = do
-    makeF s
-    createMsg form (toMagenta s)
-
-prompt :: String -> (String -> IO ()) -> IO ()
-prompt form makeF = do
-    putStrLn "Please enter a filename:"
-    s <- getLine
-    make form makeF s
-
-mkDirp :: String -> IO ()
-mkDirp path = do
-    origDir <- getCurrentDirectory
-    if notNull path
-                 then (\x -> createDirectory x >> setCurrentDirectory x) `mapM_` (splitWith '/' path) >> setCurrentDirectory origDir >> putStrLn "Should print proper Created Directory msg"
-                 else return ()
 
 createFile, createFolder, createSmart :: String -> IO ()
 
 createFile = create "file" doesFileExist writeFile'
 createFolder = create "folder" doesDirectoryExist createDirectory
+
+createSmart "" = return ()
 createSmart s = if '.' `elem` s then createFile s else createFolder s
 
 -- Composition ----------
@@ -247,32 +223,61 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
+-- mkDirp :: [String] -> IO ()
+mkDirp [""] = return ()
+mkDirp [x] = mk x [""]
+mkDirp (x:xs) = mk x xs
+
+mk (x:[]) xs = doesDirectoryExist x
+             >>= \exists -> if exists && notNull x
+                               then skipMsg "path" (toMagenta (x ++ "/" ++ xs ++ "/"))
+                               else createDirectory x >> setCurrentDirectory x >> mkDirp xs
+
+
+-- mkDirp path = mk `mapM_` path
+--     where mk s = do exists <- doesDirectoryExist s
+--                     putId $ show exists
+                    -- if exists || notNull s
+                    --    then createDirectory s >> setCurrentDirectory s
+                    --    else skipMsg "path" (toMagenta s)
+
+make :: String -> (String -> IO ()) -> String -> IO ()
+make form makeF s = do
+    makeF s
+    createMsg form (toMagenta s)
+
+create :: String -> (String -> IO Bool) -> (String -> IO ()) -> String -> IO ()
+create form existF makeF s = do exists <- existF s
+                                if not exists
+                                   then make form makeF s
+                                   else skip form s
+
+input op token char ext san = do
+    putStrLn "Enter a path:"
+    s <- getLine
+    maker op token char ext san s
+
+output p n e op = let neS = nameExtDot n e
+                      pS  = intercalate "/" p ++ "/"
+                      nepS = pS ++ neS
+                  in if op == "e" || op == "echo"
+                        then createChoice op nepS
+                        else do
+                            origDir <- getCurrentDirectory
+                            mkDirp p
+                            putStrLn neS
+                            -- createChoice op neS
+                            createMsg "path" (toMagenta $ nepS)
+                            setCurrentDirectory origDir
+                            return ()
+
+maker op token char ext san ""   = input op token char ext san
 maker op token char ext san name = creator $ triApply pathF nameF extF <$> pathNameExt <$> multi name
-    where pathF = id
+    where pathF = splitWith '/'
           nameF = concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice char <$> tokens
           extF  = concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens
-          creator x = sequence_ [io p n e | (p,n,e) <- x]
-          io p n e = do
-              mkDirp p
-              createChoice op (nameExtDot n e)
-              return ()
-
-          -- TODO: combine mkDirp and createChoice so that the file is made within the directory
-          -- TODO: move mkDirp's formatting into pathF
-          -- TODO: move getLine from create into a maker pattern match
-          -- maker op token char ext san "" = ... getLine
-          -- maker op token char ext san name = ...
+          creator x = sequence_ [output p n e op | (p,n,e) <- x]
 
 o = maker "" "" "" "" ""
 e = maker "echo" "h" "u" "" ""
-s = maker "smart" "h" "c" "l" ""
-
--- maker createOp token charCase ext san name = {- (createChoice createOp) `mapM_` -} ({- splitDot . -} modSplit
---     ({- concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice charCase <$> -} fmap (modSplit mkDirp id . pathFile) . tokens)
---     (concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens)
---     . nameExt <$> multi name)
-
--- maker' op token char ext san name = id $ (nameF *** extF) <$> nameExt <$> multi name
---     where nameF = \s -> pathFile <$> tokens s
---           extF = concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens
---           creator x = sequence_ [putStrLn b | (a,b) <- x]
+-- s = maker "smart" "h" "c" "l" ""
