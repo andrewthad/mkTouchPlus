@@ -10,7 +10,13 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, set
 
 main = input "" "" "" "" ""
 
--- TODO: colour folders/paths and files in different colours
+-- TODO: dont use the form name anymore on messages!!!! Just use colour coding to distinguish paths + folders vs files
+
+-- Just use:
+-- Created: file.txt
+
+-- TODO: colour folders/paths and files in different colours. Pink + purple?
+-- TODO: make multi accept tabs and linebreaks also. Make it work with the different types of line endings properly
 
 -- Utilities ----------
 
@@ -216,16 +222,24 @@ createChoice createOp | eitherCreate "t" "touch" = writeFile'
 
 
 mkDirp [""] = return ()
-mkDirp [x] = mk x [""]
-mkDirp z@(x:xs) = do exists <- doesDirectoryExist x
-                     if not exists
-                        then mk x xs
-                        else skipMsg "path" (toMagenta (intercalate "/" z ++ "/"))
+mkDirp [x] = mkCheck x [""]
+mkDirp (x:xs) = mkCheck x xs
 
-mk "" [""] = return ()
-mk x [""] = createStep x
-mk x [y] = createStep x >> mk y [""]
-mk x (y:ys) = createStep x >> mk y ys
+mkCheck x xs = do exists <- doesDirectoryExist x
+                  if not exists
+                     then mkStep x xs
+                     else skipStep x xs
+
+skipStep "" [""] = return ()
+skipStep x [""] = skipMk x >> return ()
+skipStep x z = skipMk x >> mkDirp z
+
+skipMk x = setCurrentDirectory x >> skipMsg "exists" x
+
+mkStep "" [""] = return ()
+mkStep x [""] = createStep x
+mkStep x [y] = createStep x >> mkStep y [""]
+mkStep x (y:ys) = createStep x >> mkStep y ys
 
 createStep x = createDirectory x >> setCurrentDirectory x
 
@@ -246,6 +260,7 @@ output p n e op = let neS = nameExtDot n e
                             createMsg "path" (toMagenta $ nepS)
                             setCurrentDirectory origDir
                             return ()
+                            -- TODO: dont use the form name anymore on messages!!!! Just use colour coding to distinguish paths + folders vs files
 
 maker op token char ext san ""   = input op token char ext san
 maker op token char ext san name = creator $ triApply pathF nameF extF <$> pathNameExt <$> multi name
