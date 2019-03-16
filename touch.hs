@@ -10,13 +10,10 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, set
 
 main = input "" "" "" "" ""
 
--- TODO: dont use the form name anymore on messages!!!! Just use colour coding to distinguish paths + folders vs files
+-- TODO: make putStr coloured sections to change messaging system completely. refer to sticky notes
 
--- Just use:
--- Created: file.txt
-
--- TODO: colour folders/paths and files in different colours. Pink + purple?
 -- TODO: make multi accept tabs and linebreaks also. Make it work with the different types of line endings properly
+-- TODO: make a function that ellipsises long filenames from middle. e.g. this-is-a-l...ame-it-is.txt
 
 -- Utilities ----------
 
@@ -158,21 +155,23 @@ reset = ansiCode 0
 colorStr :: Int -> String -> String
 colorStr n s = ansiCode n ++ s ++ reset
 
+-- TODO: remove the 'to'
 toGreen, toRed :: String -> String
-toGreen = colorStr 32
 toRed = colorStr 31
+toGreen = colorStr 32
+toYellow = colorStr 33
 toMagenta = colorStr 35
 
-msg :: String -> (String -> String) -> String -> String -> IO ()
-msg form color op s = putId $ color (take 16 $ title form ++ " " ++ op ++ ":" ++ repeat ' ') ++ s
+-- msg :: String -> (String -> String) -> String -> String -> IO ()
+msg color op s = putId $ color (take 12 $ op ++ ":" ++ repeat ' ') ++ s
 
-createMsg, skipMsg :: String -> String -> IO ()
+-- createMsg, skipMsg :: String -> String -> IO ()
 
-createMsg op s = msg op toGreen "Created" s
-skipMsg op s = msg op toRed "Skipped" s
+createMsg s = msg toGreen "Created" s
+skipMsg s = msg toRed "Skipped" s
 
-skip :: String -> String -> IO ()
-skip form s = skipMsg form ("The " ++ form ++ " " ++ toMagenta s ++ " already exists, but it hasn't been overwritten by this operation")
+-- skip :: String -> String -> IO ()
+-- skip form s = skipMsg form ("The " ++ form ++ " " ++ toMagenta s ++ " already exists, but it hasn't been overwritten by this operation")
 
 createSmart "" = return ()
 createSmart s = if '.' `elem` s then writeFile' s else createDirectory s
@@ -230,11 +229,18 @@ mkCheck x xs = do exists <- doesDirectoryExist x
                      then mkStep x xs
                      else skipStep x xs
 
+-- checkStep "" [""] = return ()
+-- checkStep x [""] = return ()
+-- checkStep x (y:ys) = do
+--     exists <- doesDirectoryExist x
+--         if exists
+--            then checkStep y ys
+
 skipStep "" [""] = return ()
 skipStep x [""] = skipMk x >> return ()
 skipStep x z = skipMk x >> mkDirp z
 
-skipMk x = setCurrentDirectory x >> skipMsg "exists" x
+skipMk x = setCurrentDirectory x >> skipMsg x
 
 mkStep "" [""] = return ()
 mkStep x [""] = createStep x
@@ -248,8 +254,8 @@ input op token char ext san = do
     s <- getLine
     maker op token char ext san s
 
-output p n e op = let neS = nameExtDot n e
-                      pS  = intercalate "/" p ++ "/"
+output p n e op = let neS = toMagenta $ nameExtDot n e
+                      pS  = toYellow $ intercalate "/" p ++ "/"
                       nepS = pS ++ neS
                   in if op == "e" || op == "echo"
                         then createChoice op nepS
@@ -257,7 +263,7 @@ output p n e op = let neS = nameExtDot n e
                             origDir <- getCurrentDirectory
                             mkDirp p
                             createChoice op neS
-                            createMsg "path" (toMagenta $ nepS)
+                            createMsg nepS
                             setCurrentDirectory origDir
                             return ()
                             -- TODO: dont use the form name anymore on messages!!!! Just use colour coding to distinguish paths + folders vs files
