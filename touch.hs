@@ -35,11 +35,6 @@ tokens s = if s' == "" then [] else word : tokens rest
 multi :: String -> [String]
 multi = splitWith ','
 
-putId, writeFile' :: String -> IO ()
-
-putId = putStrLn . id
-writeFile' s = writeFile s ""
-
 putToList :: a -> [a]
 putToList x = [x]
 
@@ -156,25 +151,13 @@ colorStr :: Int -> String -> String
 colorStr n s = ansiCode n ++ s ++ reset
 
 -- TODO: remove the 'to'
-toGreen, toRed :: String -> String
+-- toGreen, toRed :: String -> String
 toRed = colorStr 31
 toGreen = colorStr 32
-toYellow = colorStr 33
-toMagenta = colorStr 35
-
--- msg :: String -> (String -> String) -> String -> String -> IO ()
-msg color op s = putId $ color (take 12 $ op ++ ":" ++ repeat ' ') ++ s
-
--- createMsg, skipMsg :: String -> String -> IO ()
-
-createMsg s = msg toGreen "Created" s
-skipMsg s = msg toRed "Skipped" s
-
--- skip :: String -> String -> IO ()
--- skip form s = skipMsg form ("The " ++ form ++ " " ++ toMagenta s ++ " already exists, but it hasn't been overwritten by this operation")
+toBlue = colorStr 34
 
 createSmart "" = return ()
-createSmart s = if '.' `elem` s then writeFile' s else createDirectory s
+createSmart s = if '.' `elem` s then createFile s else createDir s
 
 -- Composition ----------
 
@@ -211,14 +194,28 @@ sanitiseChoice san | eitherSan "u" "unix"         = exclude unixEx
                      where eitherSan = eitherEq san
                            sensible  = exclude sensibleEx
 
-createChoice :: String -> (String -> IO ())
-createChoice createOp | eitherCreate "t" "touch" = writeFile'
+-- createChoice :: String -> (String -> IO ())
+createChoice createOp | eitherCreate "t" "touch" = createFile
                       | eitherCreate "m" "mkdir" = createDirectory
                       | eitherCreate "s" "smart" = createSmart
-                      | eitherCreate "e" "echo"  = putId
+                      | eitherCreate "e" "echo"  = putStrLn
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
+skipMsg :: String -> (String -> String) -> String -> String
+skipMsg kind color s = toRed (s ++ "\n\nThe " ++ kind) ++ " " ++ color s ++ " " ++ toRed "already exists, so it hasn't been touched."
+
+createFile s = do
+    exists <- doesFileExist s
+    if not exists
+       then writeFile s "" >> putStrLn (toBlue s)
+       else putStrLn $ skipMsg "file" toBlue s
+
+createDir s = do
+    exists <- doesDirectoryExist s
+    if not exists
+       then createDirectory s >> putStrLn (toGreen s)
+       else putStrLn $ skipMsg "folder" toGreen s
 
 mkDirp [""] = return ()
 mkDirp [x] = mkCheck x [""]
@@ -229,23 +226,16 @@ mkCheck x xs = do exists <- doesDirectoryExist x
                      then mkStep x xs
                      else skipStep x xs
 
--- checkStep "" [""] = return ()
--- checkStep x [""] = return ()
--- checkStep x (y:ys) = do
---     exists <- doesDirectoryExist x
---         if exists
---            then checkStep y ys
-
 skipStep "" [""] = return ()
 skipStep x [""] = skipMk x >> return ()
 skipStep x z = skipMk x >> mkDirp z
 
-skipMk x = setCurrentDirectory x >> skipMsg x
+skipMk x = setCurrentDirectory x >> putStr (toRed $ x ++ "/")
 
 mkStep "" [""] = return ()
 mkStep x [""] = createStep x
-mkStep x [y] = createStep x >> mkStep y [""]
-mkStep x (y:ys) = createStep x >> mkStep y ys
+mkStep x [y] = createStep x >> putStr (toGreen $ x ++ "/") >> mkStep y [""]
+mkStep x (y:ys) = createStep x >> putStr (toGreen $ x ++ "/") >> mkStep y ys
 
 createStep x = createDirectory x >> setCurrentDirectory x
 
@@ -254,27 +244,27 @@ input op token char ext san = do
     s <- getLine
     maker op token char ext san s
 
-output p n e op = let neS = toMagenta $ nameExtDot n e
-                      pS  = toYellow $ intercalate "/" p ++ "/"
+output p n e op = let neS = nameExtDot n e
+                      pS  = intercalate "/" p ++ "/"
                       nepS = pS ++ neS
                   in if op == "e" || op == "echo"
                         then createChoice op nepS
                         else do
                             origDir <- getCurrentDirectory
+                            putStrLn ""
                             mkDirp p
                             createChoice op neS
-                            createMsg nepS
+                            putStrLn ""
                             setCurrentDirectory origDir
                             return ()
-                            -- TODO: dont use the form name anymore on messages!!!! Just use colour coding to distinguish paths + folders vs files
 
 maker op token char ext san ""   = input op token char ext san
 maker op token char ext san name = creator $ triApply pathF nameF extF <$> pathNameExt <$> multi name
-    where pathF = splitWith '/'
+    where pathF = lNotNull . sanitiseChoice san . caseChoice char <$> splitWith '/'
           nameF = concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice char <$> tokens
           extF  = concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens
           creator x = sequence_ [output p n e op | (p,n,e) <- x]
 
 o = maker "" "" "" "" ""
 e = maker "echo" "h" "u" "" ""
--- s = maker "smart" "h" "c" "l" ""
+s = maker "smart" "h" "c" "l" ""
