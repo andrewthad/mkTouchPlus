@@ -10,12 +10,13 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, set
 
 main = input "" "" "" "" ""
 
--- TODO: make putStr coloured sections to change messaging system completely. refer to sticky notes
-
 -- TODO: make multi accept tabs and linebreaks also. Make it work with the different types of line endings properly
 -- TODO: make a function that ellipsises long filenames from middle. e.g. this-is-a-l...ame-it-is.txt
 
 -- Utilities ----------
+
+-- version :: Decimal
+version = 1.0
 
 isToken :: Char -> Bool
 isToken c = (c ==) `any` " -_"
@@ -40,6 +41,13 @@ putToList x = [x]
 
 anyEq :: Eq a => [a] -> [a] -> Bool
 anyEq x y = any id $ liftA2 (==) x y
+
+shorten n s = if length s > n
+                 then let half = floor $ fromIntegral ((n - 3) `div` 2)
+                          left = take half s
+                          right = reverse $ take half $ reverse s
+                      in  left ++ "..." ++ right
+                 else s
 
 -- Tokenisation ----------
 
@@ -259,7 +267,9 @@ output p n e op = let neS = nameExtDot n e
                             return ()
 
 maker op token char ext san ""   = input op token char ext san
-maker op token char ext san name = creator $ triApply pathF nameF extF <$> pathNameExt <$> multi name
+maker op token char ext san name = if name == "-h" || name == "--help"
+                                      then putStrLn $ "\n" ++ toGreen ("Nice Touch v" ++ show version) ++ "\n\nFor help, open the readme in your browser:\n\n" ++ toBlue "https://www.com" ++ "\n"
+                                      else creator $ triApply pathF nameF extF <$> pathNameExt <$> multi name
     where pathF = lNotNull . sanitiseChoice san . caseChoice char <$> splitWith '/'
           nameF = concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice char <$> tokens
           extF  = concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens
