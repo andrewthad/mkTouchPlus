@@ -11,7 +11,6 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, set
 main = input "" "" "" "" ""
 
 -- TODO: make multi accept tabs and linebreaks also. Make it work with the different types of line endings properly
--- TODO: make a function that ellipsises long filenames from middle. e.g. this-is-a-l...ame-it-is.txt
 
 -- Utilities ----------
 
@@ -28,6 +27,10 @@ splitWith :: Char -> String -> [String]
 splitWith c s = let (start, end) = break (== c) s
                in  start : if null end then [] else splitWith c (tail end)
 
+splitWith' :: String -> String -> [String]
+splitWith' l s = let (start, end) = break (`anyEq` l) s
+               in  start : if null end then [] else splitWith' l (tail end)
+
 tokens :: String -> [String]
 tokens s = if s' == "" then [] else word : tokens rest
   where s' = dropWhile isToken s
@@ -42,12 +45,14 @@ putToList x = [x]
 anyEq :: Eq a => [a] -> [a] -> Bool
 anyEq x y = any id $ liftA2 (==) x y
 
-shorten n s = if length s > n
+shrink n s = if length s > n
                  then let half = floor $ fromIntegral ((n - 3) `div` 2)
                           left = take half s
                           right = reverse $ take half $ reverse s
                       in  left ++ "..." ++ right
                  else s
+
+shrink' = shrink 21
 
 -- Tokenisation ----------
 
@@ -149,6 +154,8 @@ conservativeIn = separators ++ numbers ++ capitals ++ letters
 
 -- IO ----------
 
+putLine = putStr "\n"
+
 ansiCode :: Int -> String
 ansiCode n = "\x1b["  ++ show n ++ "m"
 
@@ -210,14 +217,16 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
+bullet = (++) "\8226 "
+
 skipMsg :: String -> (String -> String) -> String -> String
-skipMsg kind color s = toRed (s ++ "\n\nThe " ++ kind) ++ " " ++ color s ++ " " ++ toRed "already exists, so it hasn't been touched."
+skipMsg kind color s = toRed (s ++ "\n\n" ++ bullet "The " ++ kind) ++ " " ++ color s ++ " " ++ toRed "already exists, so it hasn't been touched."
 
 createFile s = do
     exists <- doesFileExist s
     if not exists
-       then writeFile s "" >> putStrLn (toBlue s)
-       else putStrLn $ skipMsg "file" toBlue s
+       then writeFile s "" >> putStrLn (toBlue $ shrink' s)
+       else putStrLn $ skipMsg "file" toBlue (shrink' s)
 
 createDir s = do
     exists <- doesDirectoryExist s
@@ -238,12 +247,12 @@ skipStep "" [""] = return ()
 skipStep x [""] = skipMk x >> return ()
 skipStep x z = skipMk x >> mkDirp z
 
-skipMk x = setCurrentDirectory x >> putStr (toRed $ x ++ "/")
+skipMk x = setCurrentDirectory x >> putStr (toRed $ shrink' x ++ "/")
 
 mkStep "" [""] = return ()
 mkStep x [""] = createStep x
-mkStep x [y] = createStep x >> putStr (toGreen $ x ++ "/") >> mkStep y [""]
-mkStep x (y:ys) = createStep x >> putStr (toGreen $ x ++ "/") >> mkStep y ys
+mkStep x [y] = createStep x >> putStr (toGreen $ shrink' x ++ "/") >> mkStep y [""]
+mkStep x (y:ys) = createStep x >> putStr (toGreen $ shrink' x ++ "/") >> mkStep y ys
 
 createStep x = createDirectory x >> setCurrentDirectory x
 
@@ -259,10 +268,10 @@ output p n e op = let neS = nameExtDot n e
                         then createChoice op nepS
                         else do
                             origDir <- getCurrentDirectory
-                            putStrLn ""
+                            putLine
                             mkDirp p
                             createChoice op neS
-                            putStrLn ""
+                            putLine
                             setCurrentDirectory origDir
                             return ()
 
