@@ -10,8 +10,6 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, set
 
 main = input "" "" "" "" ""
 
--- TODO: make multi accept tabs and linebreaks also. Make it work with the different types of line endings properly
-
 -- Utilities ----------
 
 -- version :: Decimal
@@ -23,13 +21,9 @@ isToken c = (c ==) `any` " -_"
 eitherEq :: (Eq a) => a -> a -> a -> Bool
 eitherEq a = (||) `on` (a ==)
 
-splitWith :: Char -> String -> [String]
-splitWith c s = let (start, end) = break (== c) s
-               in  start : if null end then [] else splitWith c (tail end)
-
-splitWith' :: String -> String -> [String]
-splitWith' l s = let (start, end) = break (`anyEq` l) s
-               in  start : if null end then [] else splitWith' l (tail end)
+splitWith :: String -> String -> [String]
+splitWith l s = let (start, end) = break (`elem` l) s
+                in  start : if null end then [] else splitWith l (tail end)
 
 tokens :: String -> [String]
 tokens s = if s' == "" then [] else word : tokens rest
@@ -37,7 +31,7 @@ tokens s = if s' == "" then [] else word : tokens rest
         (word, rest) = break isToken s'
 
 multi :: String -> [String]
-multi = splitWith ','
+multi = splitWith ",\n\t"
 
 putToList :: a -> [a]
 putToList x = [x]
@@ -63,14 +57,14 @@ lNotNull :: [String] -> [String]
 lNotNull = filter notNull
 
 sections :: String -> [String]
-sections = lNotNull . splitWith '.'
+sections = lNotNull . splitWith "."
 
-splitLast :: Char -> String -> (String, String)
-splitLast c = (intercalate [c] . init &&& last) . splitWith c
+splitLast :: String -> String -> (String, String)
+splitLast s = (intercalate s . init &&& last) . splitWith s
 
 nameExt, pathFile :: String -> (String, String)
-nameExt s = let sep = '.' in if sep `elem` s then splitLast sep s else (s,"")
-pathFile = splitLast '/'
+nameExt s = let sep = '.' in if sep `elem` s then splitLast [sep] s else (s,"")
+pathFile = splitLast "/"
 
 pathNameExt :: String -> (String, String, String)
 pathNameExt s = nameExt `second` pathFile s & \(a,(b,c)) -> (a,b,c)
@@ -155,6 +149,7 @@ conservativeIn = separators ++ numbers ++ capitals ++ letters
 -- IO ----------
 
 putLine = putStr "\n"
+putLineSurround f = putLine >> f >> putLine
 
 ansiCode :: Int -> String
 ansiCode n = "\x1b["  ++ show n ++ "m"
@@ -217,10 +212,10 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
-bullet = (++) "\8226 "
+indent = replicate 2 ' '
 
 skipMsg :: String -> (String -> String) -> String -> String
-skipMsg kind color s = toRed (s ++ "\n\n" ++ bullet "The " ++ kind) ++ " " ++ color s ++ " " ++ toRed "already exists, so it hasn't been touched."
+skipMsg kind color s = toRed (s ++ indent ++ "(") ++ color s ++ " " ++ toRed "hasn't been overwritten.)"
 
 createFile s = do
     exists <- doesFileExist s
@@ -268,10 +263,8 @@ output p n e op = let neS = nameExtDot n e
                         then createChoice op nepS
                         else do
                             origDir <- getCurrentDirectory
-                            putLine
                             mkDirp p
                             createChoice op neS
-                            putLine
                             setCurrentDirectory origDir
                             return ()
 
@@ -279,10 +272,10 @@ maker op token char ext san ""   = input op token char ext san
 maker op token char ext san name = if name == "-h" || name == "--help"
                                       then putStrLn $ "\n" ++ toGreen ("Nice Touch v" ++ show version) ++ "\n\nFor help, open the readme in your browser:\n\n" ++ toBlue "https://www.com" ++ "\n"
                                       else creator $ triApply pathF nameF extF <$> pathNameExt <$> multi name
-    where pathF = lNotNull . sanitiseChoice san . caseChoice char <$> splitWith '/'
+    where pathF = lNotNull . sanitiseChoice san . caseChoice char <$> splitWith "/"
           nameF = concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice char <$> tokens
           extF  = concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens
-          creator x = sequence_ [output p n e op | (p,n,e) <- x]
+          creator x = putLineSurround $ sequence_ [output p n e op | (p,n,e) <- x]
 
 o = maker "" "" "" "" ""
 e = maker "echo" "h" "u" "" ""
