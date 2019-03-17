@@ -227,7 +227,15 @@ existCheck existF exists notExists s = do
 
 mkCheck, mkStep, skipStep :: String -> [String] -> IO ()
 
-mkCheck x xs = existCheck doesDirectoryExist (skipStep x xs) (mkStep x xs) x
+mkCheck ".." xs = do
+    cd <- getCurrentDirectory
+    let parent = fst $ pathFile cd
+    setCurrentDirectory parent
+    mkChoice parent xs
+mkCheck x xs = mkChoice x xs
+
+mkChoice :: String -> [String] -> IO ()
+mkChoice x xs = existCheck doesDirectoryExist (skipStep x xs) (mkStep x xs) x
 
 skipStep "" [] = return ()
 skipStep "" [""] = return ()
