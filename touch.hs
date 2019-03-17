@@ -6,6 +6,10 @@ import Data.List (groupBy, intercalate, intersperse)
 import System.IO (writeFile)
 import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, getCurrentDirectory, setCurrentDirectory)
 
+-- TODO: make ../ work in the middle of a path
+-- TODO: make / at the start of path set cd to home
+-- TODO: make test// work. two slashes in a row causes error
+
 main = input "" "" "" "" ""
 
 b = maker "" "h" "" "" ""
@@ -227,28 +231,33 @@ existCheck existF exists notExists s = do
 
 mkCheck, mkStep, skipStep :: String -> [String] -> IO ()
 
-mkCheck ".." xs = do
+mkCheck ".." [] = return ()
+mkCheck x [] = mkChoice x []
+mkCheck ".." xs = mkParent xs
+mkCheck x xs = mkChoice x xs
+
+mkParent :: [String] -> IO ()
+mkParent x = do
     cd <- getCurrentDirectory
     let parent = fst $ pathFile cd
-    setCurrentDirectory parent
-    mkChoice parent xs
-mkCheck x xs = mkChoice x xs
+        exists = do setCurrentDirectory parent
+                    putStr (green "../")
+                    mkDirPath x
+        notExists = mkDirPath x
+    existCheck doesDirectoryExist exists notExists parent
+
 
 mkChoice :: String -> [String] -> IO ()
 mkChoice x xs = existCheck doesDirectoryExist (skipStep x xs) (mkStep x xs) x
 
 skipStep "" [] = return ()
-skipStep "" [""] = return ()
 skipStep x [] = skip x
-skipStep x [""] = skip x
 skipStep x xs = skip x >> mkDirPath xs
 
 mkStep "" [] = return ()
-mkStep "" [""] = return ()
 mkStep x [] = mk x
-mkStep x [""] = mk x
-mkStep x [y] = mk x >> mkStep y [""]
-mkStep x (y:ys) = mk x >> mkStep y ys
+mkStep x [y] = mk x >> mkCheck y [""]
+mkStep x (y:ys) = mk x >> mkCheck y ys
 
 skip, mk :: String -> IO ()
 
@@ -284,8 +293,7 @@ help = concat [ "\n"
               , "For help, open the readme in your browser:"
               , twoNL
               , blue "https://www.com"
-              , "\n"
-              ]
+              , "\n" ]
 
 -- Composition ----------
 
