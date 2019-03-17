@@ -1,22 +1,32 @@
-import Control.Arrow
-import Data.Function ((&))
--- import Control.Monad
 import Control.Applicative (liftA2)
+import Control.Arrow ((&&&), second)
 import Data.Char (toLower, toUpper)
-import Data.Function (on)
-import Data.List (intersperse, groupBy, intercalate)
+import Data.Function ((&), on)
+import Data.List (groupBy, intercalate, intersperse)
 import System.IO (writeFile)
-import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, setCurrentDirectory, getCurrentDirectory)
+import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, getCurrentDirectory, setCurrentDirectory)
 
 main = input "" "" "" "" ""
 
+-- TODO: tidy composition section onwards
+
+o = maker "" "" "" "" ""
+e = maker "echo" "h" "u" "" ""
+s = maker "smart" "h" "c" "l" ""
+
+-- Constants ----------
+
+name, version, indent :: String
+
+name = "Nice Touch"
+version = "v" ++ show 1.0
+
+indent = replicate 2 ' '
+
 -- Utilities ----------
 
--- version :: Decimal
-version = 1.0
-
-isToken :: Char -> Bool
-isToken c = (c ==) `any` " -_"
+isSep :: Char -> Bool
+isSep c = (c ==) `any` " -_"
 
 eitherEq :: (Eq a) => a -> a -> a -> Bool
 eitherEq a = (||) `on` (a ==)
@@ -25,45 +35,43 @@ splitWith :: String -> String -> [String]
 splitWith l s = let (start, end) = break (`elem` l) s
                 in  start : if null end then [] else splitWith l (tail end)
 
-tokens :: String -> [String]
-tokens s = if s' == "" then [] else word : tokens rest
-  where s' = dropWhile isToken s
-        (word, rest) = break isToken s'
+multi, tokens :: String -> [String]
 
-multi :: String -> [String]
 multi = splitWith ",\n\t"
 
-putToList :: a -> [a]
-putToList x = [x]
+tokens s = if s' == "" then [] else word : tokens rest
+  where s' = dropWhile isSep s
+        (word, rest) = break isSep s'
 
 anyEq :: Eq a => [a] -> [a] -> Bool
 anyEq x y = any id $ liftA2 (==) x y
 
-shrink n s = if length s > n
+shrinkTo :: Int -> String -> String
+shrinkTo n s = if length s > n
                  then let half = floor $ fromIntegral ((n - 3) `div` 2)
                           left = take half s
                           right = reverse $ take half $ reverse s
                       in  left ++ "..." ++ right
                  else s
 
-shrink' = shrink 21
+shrink :: String -> String
+shrink = shrinkTo 21
 
 -- Tokenisation ----------
 
 notNull :: [a] -> Bool
 notNull = not . null
 
-lNotNull :: [String] -> [String]
-lNotNull = filter notNull
-
-sections :: String -> [String]
-sections = lNotNull . splitWith "."
+noNulls :: [String] -> [String]
+noNulls = filter notNull
 
 splitLast :: String -> String -> (String, String)
 splitLast s = (intercalate s . init &&& last) . splitWith s
 
 nameExt, pathFile :: String -> (String, String)
-nameExt s = let sep = '.' in if sep `elem` s then splitLast [sep] s else (s,"")
+
+nameExt s = let dot = '.' in if dot `elem` s then splitLast [dot] s else (s,"")
+
 pathFile = splitLast "/"
 
 pathNameExt :: String -> (String, String, String)
@@ -71,15 +79,6 @@ pathNameExt s = nameExt `second` pathFile s & \(a,(b,c)) -> (a,b,c)
 
 triApply :: (t1 -> a) -> (t2 -> b) -> (t3 -> c) -> (t1, t2, t3) -> (a, b, c)
 triApply fa fb fc (a, b, c) = (fa a, fb b, fc c)
-
-modSplit :: (a1 -> a2) -> (b1 -> b2) -> (a1, b1) -> (a2, b2)
-modSplit fa fb (name, ext) = (fa name, fb ext)
-
-splitDot :: (String, String) -> String
-splitDot ("","") = ""
-splitDot (a,"") = a
-splitDot ("",b) = b
-splitDot (a,b) = if last a == '.' then a ++ b else a ++ "." ++ b
 
 nameExtDot :: String -> String -> String
 nameExtDot "" "" = ""
@@ -89,13 +88,13 @@ nameExtDot a b = if last a == '.' then a ++ b else a ++ "." ++ b
 
 -- Separators ----------
 
-hyphenToken, snakeToken, dotToken, extToken :: [String] -> [String]
+hyphenSep, snakeSep, dotSep, extSep :: [String] -> [String]
 
-hyphenToken = interSep "-"
-snakeToken = interSep "_"
-dotToken = interSep "."
-spaceToken = interSep " "
-extToken = putToList . concat
+hyphenSep = interSep "-"
+snakeSep = interSep "_"
+dotSep = interSep "."
+spaceSep = interSep " "
+extSep = (\x -> [x]) . concat
 
 interSep :: String -> [String] -> [String]
 interSep sep [x]          = [x]
@@ -103,18 +102,18 @@ interSep sep (x:xs@(y:z)) = if [last x, head y] `anyEq` "./"
                                then x : interSep sep xs
                                else x : sep : interSep sep xs
 
-dot :: [[String]] -> [String]
-dot = foldr (\x y -> if y == [] then x ++ y else x ++ ["."] ++ y) []
-
 -- Cases ----------
 
 title :: String -> String
 title (c:cs) = toUpper c : cs
 
+doubleMap :: (a -> b) -> [[a]] -> [[b]]
+doubleMap f = map $ map f
+
 lowerCase, upperCase, titleCase, camelCase :: [String] -> [String]
 
-lowerCase = map $ map toLower
-upperCase = map $ map toUpper
+lowerCase = doubleMap toLower
+upperCase = doubleMap toUpper
 
 titleCase = map title
 
@@ -124,10 +123,13 @@ camelCase (x:xs) = x : map title xs
 
 -- Sanitisation ----------
 
--- exclude, include :: String -> String -> String
+clude :: (Foldable t, Eq a) => (Bool -> Bool) -> t a -> [[a]] -> [[a]]
+clude neg s = map $ filter (neg . (`elem` s))
 
-exclude s = map $ filter (not . (`elem` s))
-include s = map $ filter (`elem` s)
+include, exclude :: (Foldable t, Eq a) => t a -> [[a]] -> [[a]]
+
+include = clude id
+exclude = clude not
 
 control, nbsp, spaces, punctuation, separators, numbers, capitals, letters, unixEx, macEx, windowsEx, sensibleEx, conservativeIn :: String
 
@@ -146,9 +148,21 @@ windowsEx = control ++ "\\?%*:|\"<>."
 sensibleEx = control ++ spaces ++ punctuation
 conservativeIn = separators ++ numbers ++ capitals ++ letters
 
+unix, windows, mac, sensible, conservative :: [String] -> [String]
+
+unix = exclude unixEx
+windows = exclude windowsEx
+mac = exclude macEx
+sensible = exclude sensibleEx
+conservative = include conservativeIn
+
+
 -- IO ----------
 
+putLine :: IO ()
 putLine = putStr "\n"
+
+putLineSurround :: IO a -> IO ()
 putLineSurround f = putLine >> f >> putLine
 
 ansiCode :: Int -> String
@@ -157,29 +171,94 @@ ansiCode n = "\x1b["  ++ show n ++ "m"
 reset :: String
 reset = ansiCode 0
 
-colorStr :: Int -> String -> String
-colorStr n s = ansiCode n ++ s ++ reset
+colored :: Int -> String -> String
+colored n s = ansiCode n ++ s ++ reset
 
--- TODO: remove the 'to'
--- toGreen, toRed :: String -> String
-toRed = colorStr 31
-toGreen = colorStr 32
-toBlue = colorStr 34
+red, green, blue :: String -> String
 
+red = colored 31
+green = colored 32
+blue = colored 34
+
+createSmart :: String -> IO ()
 createSmart "" = return ()
 createSmart s = if '.' `elem` s then createFile s else createDir s
 
+skipMsg :: (String -> String) -> String -> String
+skipMsg color s = concat [red (s ++ indent ++ "-- ")
+                         , color s
+                         , " "
+                         , red "hasn't been overwritten."]
+
+createOutput :: (String -> IO Bool) -> (String -> IO a) -> (String -> String) -> String -> IO ()
+createOutput existF createF colorF s = do
+    exists <- existF s
+    if not exists
+       then createF s >> putStrLn (colorF $ shrink s)
+       else putStrLn $ skipMsg colorF (shrink s)
+
+createFile, createDir :: String -> IO ()
+
+createFile s = createOutput doesFileExist (\s -> writeFile s "") blue s
+createDir s = createOutput doesDirectoryExist createDirectory green s
+
+mkDirPath :: [String] -> IO ()
+mkDirPath [""] = return ()
+mkDirPath [x] = mkCheck x [""]
+mkDirPath (x:xs) = mkCheck x xs
+
+mkCheck, mkStep, skipStep :: String -> [String] -> IO ()
+
+mkCheck x xs = do exists <- doesDirectoryExist x
+                  if not exists
+                     then mkStep x xs
+                     else skipStep x xs
+
+mkStep "" [""] = return ()
+mkStep x [""] = createStep x
+mkStep x [y] = createStep x >> putStr (green $ shrink x ++ "/") >> mkStep y [""]
+mkStep x (y:ys) = createStep x >> putStr (green $ shrink x ++ "/") >> mkStep y ys
+
+skipStep "" [""] = return ()
+skipStep x [""] = skipMk x >> return ()
+skipStep x z = skipMk x >> mkDirPath z
+
+skipMk, createStep :: String -> IO ()
+
+skipMk x = setCurrentDirectory x >> putStr (red $ shrink x ++ "/")
+
+createStep x = createDirectory x >> setCurrentDirectory x
+
+input :: String -> String -> String -> String -> String -> IO ()
+input op token char ext san = do
+    putStrLn "Enter a path:"
+    s <- getLine
+    maker op token char ext san s
+
+output :: [String] -> String -> String -> String -> IO ()
+output p n e op = let neS = nameExtDot n e
+                      pS  = intercalate "/" p ++ "/"
+                      nepS = pS ++ neS
+                  in if eitherEq op "e" "echo"
+                        then createChoice op nepS
+                        else do
+                            origDir <- getCurrentDirectory
+                            mkDirPath p
+                            createChoice op neS
+                            setCurrentDirectory origDir
+                            return ()
+
 -- Composition ----------
 
-tokenChoice, caseChoice, extChoice :: String -> ([String] -> [String])
+tokenChoice, caseChoice, extChoice, sanitiseChoice :: String -> ([String] -> [String])
 
-tokenChoice token | eitherToken "h" "hyphenToken" = hyphenToken
-              | eitherToken "s" "snakeToken"  = snakeToken
-              | eitherToken "d" "dotToken"    = dotToken
-              | eitherToken "S" "spaceToken"  = spaceToken
-              | eitherToken "n" "noToken"     = id
-              | otherwise                 = id
-                where eitherToken = eitherEq token
+tokenChoice token | eitherSep "h" "hyphenSep" = hyphenSep
+                  | eitherSep "s" "snakeSep"  = snakeSep
+                  | eitherSep "d" "dotSep"    = dotSep
+                  | eitherSep "S" "spaceSep"  = spaceSep
+                  | eitherSep "n" "noSep"     = id
+                  | otherwise                 = id
+                    where eitherSep = eitherEq token
 
 caseChoice charCase | eitherCase "l" "lowerCase" = lowerCase
                     | eitherCase "u" "upperCase" = upperCase
@@ -189,22 +268,20 @@ caseChoice charCase | eitherCase "l" "lowerCase" = lowerCase
                     | otherwise                  = id
                       where eitherCase = eitherEq charCase
 
-extChoice ext | null ext               = extToken
-              | eitherExt "e" "extToken" = extToken
+extChoice ext | null ext               = extSep
+              | eitherExt "e" "extSep" = extSep
               | otherwise              = tokenChoice ext
                 where eitherExt = eitherEq ext
 
--- sanitiseChoice :: String -> (String -> String)
-sanitiseChoice san | eitherSan "u" "unix"         = exclude unixEx
-                   | eitherSan "w" "windows"      = exclude windowsEx
-                   | eitherSan "m" "mac"          = exclude macEx
+sanitiseChoice san | eitherSan "u" "unix"         = unix
+                   | eitherSan "w" "windows"      = windows
+                   | eitherSan "m" "mac"          = mac
                    | eitherSan "s" "sensible"     = sensible
-                   | eitherSan "c" "conservative" = include conservativeIn
+                   | eitherSan "c" "conservative" = conservative
                    | otherwise                    = sensible
                      where eitherSan = eitherEq san
-                           sensible  = exclude sensibleEx
 
--- createChoice :: String -> (String -> IO ())
+createChoice :: String -> (String -> IO ())
 createChoice createOp | eitherCreate "t" "touch" = createFile
                       | eitherCreate "m" "mkdir" = createDirectory
                       | eitherCreate "s" "smart" = createSmart
@@ -212,71 +289,12 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
-indent = replicate 2 ' '
-
-skipMsg :: String -> (String -> String) -> String -> String
-skipMsg kind color s = toRed (s ++ indent ++ "(") ++ color s ++ " " ++ toRed "hasn't been overwritten.)"
-
-createFile s = do
-    exists <- doesFileExist s
-    if not exists
-       then writeFile s "" >> putStrLn (toBlue $ shrink' s)
-       else putStrLn $ skipMsg "file" toBlue (shrink' s)
-
-createDir s = do
-    exists <- doesDirectoryExist s
-    if not exists
-       then createDirectory s >> putStrLn (toGreen s)
-       else putStrLn $ skipMsg "folder" toGreen s
-
-mkDirp [""] = return ()
-mkDirp [x] = mkCheck x [""]
-mkDirp (x:xs) = mkCheck x xs
-
-mkCheck x xs = do exists <- doesDirectoryExist x
-                  if not exists
-                     then mkStep x xs
-                     else skipStep x xs
-
-skipStep "" [""] = return ()
-skipStep x [""] = skipMk x >> return ()
-skipStep x z = skipMk x >> mkDirp z
-
-skipMk x = setCurrentDirectory x >> putStr (toRed $ shrink' x ++ "/")
-
-mkStep "" [""] = return ()
-mkStep x [""] = createStep x
-mkStep x [y] = createStep x >> putStr (toGreen $ shrink' x ++ "/") >> mkStep y [""]
-mkStep x (y:ys) = createStep x >> putStr (toGreen $ shrink' x ++ "/") >> mkStep y ys
-
-createStep x = createDirectory x >> setCurrentDirectory x
-
-input op token char ext san = do
-    putStrLn "Enter a path:"
-    s <- getLine
-    maker op token char ext san s
-
-output p n e op = let neS = nameExtDot n e
-                      pS  = intercalate "/" p ++ "/"
-                      nepS = pS ++ neS
-                  in if op == "e" || op == "echo"
-                        then createChoice op nepS
-                        else do
-                            origDir <- getCurrentDirectory
-                            mkDirp p
-                            createChoice op neS
-                            setCurrentDirectory origDir
-                            return ()
-
+maker :: String -> String -> String -> String -> String -> String -> IO ()
 maker op token char ext san ""   = input op token char ext san
-maker op token char ext san name = if name == "-h" || name == "--help"
-                                      then putStrLn $ "\n" ++ toGreen ("Nice Touch v" ++ show version) ++ "\n\nFor help, open the readme in your browser:\n\n" ++ toBlue "https://www.com" ++ "\n"
+maker op token char ext san name = if eitherEq name "-h" "--help"
+                                      then putStrLn $ "\n" ++ green (name ++ " " ++ version) ++ "\n\nFor help, open the readme in your browser:\n\n" ++ blue "https://www.com" ++ "\n"
                                       else creator $ triApply pathF nameF extF <$> pathNameExt <$> multi name
-    where pathF = lNotNull . sanitiseChoice san . caseChoice char <$> splitWith "/"
-          nameF = concat . tokenChoice token . lNotNull . sanitiseChoice san . caseChoice char <$> tokens
-          extF  = concat . extChoice ext . lNotNull . sanitiseChoice san <$> tokens
+    where pathF = noNulls . sanitiseChoice san . caseChoice char <$> splitWith "/"
+          nameF = concat . tokenChoice token . noNulls . sanitiseChoice san . caseChoice char <$> tokens
+          extF  = concat . extChoice ext . noNulls . sanitiseChoice san <$> tokens
           creator x = putLineSurround $ sequence_ [output p n e op | (p,n,e) <- x]
-
-o = maker "" "" "" "" ""
-e = maker "echo" "h" "u" "" ""
-s = maker "smart" "h" "c" "l" ""
