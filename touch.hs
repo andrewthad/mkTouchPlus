@@ -57,6 +57,9 @@ shrinkTo n s = if length s > n
 shrink :: String -> String
 shrink = shrinkTo 21
 
+twoNL :: String
+twoNL = "\n\n"
+
 -- Tokenisation ----------
 
 notNull :: [a] -> Bool
@@ -251,6 +254,16 @@ output p n e op = let neS = nameExtDot n e
                             createChoice op neS
                             setCurrentDirectory cd
 
+help :: String
+help = concat [ "\n"
+              , green (name ++ " " ++ version)
+              , twoNL
+              , "For help, open the readme in your browser:"
+              , twoNL
+              , blue "https://www.com"
+              , "\n"
+              ]
+
 -- Composition ----------
 
 tokenChoice, caseChoice, extChoice, sanitiseChoice :: String -> ([String] -> [String])
@@ -276,13 +289,14 @@ extChoice ext | null ext               = extSep
               | otherwise              = tokenChoice ext
                 where eitherExt = eitherEq ext
 
-sanitiseChoice san | eitherSan "u" "unix"         = unix
-                   | eitherSan "w" "windows"      = windows
-                   | eitherSan "m" "mac"          = mac
-                   | eitherSan "s" "sensible"     = sensible
-                   | eitherSan "c" "conservative" = conservative
-                   | otherwise                    = sensible
-                     where eitherSan = eitherEq san
+sanitiseChoice san = noNulls . sanitiser san
+    where eitherSan = eitherEq san
+          sanitiser san | eitherSan "u" "unix"         = unix
+                        | eitherSan "w" "windows"      = windows
+                        | eitherSan "m" "mac"          = mac
+                        | eitherSan "s" "sensible"     = sensible
+                        | eitherSan "c" "conservative" = conservative
+                        | otherwise                    = sensible
 
 createChoice :: String -> (String -> IO ())
 createChoice createOp | eitherCreate "t" "touch" = createFile
@@ -295,9 +309,11 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
 maker :: String -> String -> String -> String -> String -> String -> IO ()
 maker op token char ext san ""   = input op token char ext san
 maker op token char ext san name = if eitherEq name "-h" "--help"
-                                      then putStrLn $ "\n" ++ green (name ++ " " ++ version) ++ "\n\nFor help, open the readme in your browser:\n\n" ++ blue "https://www.com" ++ "\n"
+                                      then putStrLn help
                                       else creator $ triApply pathF nameF extF <$> pathNameExt <$> multi name
-    where pathF = noNulls . sanitiseChoice san . caseChoice char <$> splitWith "/"
-          nameF = concat . tokenChoice token . noNulls . sanitiseChoice san . caseChoice char <$> tokens
-          extF  = concat . extChoice ext . noNulls . sanitiseChoice san <$> tokens
+    where pathF = sanCase <$> splitWith "/"
+          nameF = tokenApply $ tokenChoice token . sanCase
+          extF  = tokenApply $ extChoice ext . sanitiseChoice san
           creator x = putLineSurround $ sequence_ [output p n e op | (p,n,e) <- x]
+          tokenApply f = concat . f <$> tokens
+          sanCase = sanitiseChoice san . caseChoice char
