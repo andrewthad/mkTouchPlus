@@ -8,8 +8,6 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, get
 
 main = input "" "" "" "" ""
 
--- TODO: tidy composition section onwards
-
 o = maker "" "" "" "" ""
 e = maker "echo" "h" "u" "" ""
 s = maker "smart" "h" "c" "l" ""
@@ -110,24 +108,24 @@ interSep sep (x:xs@(y:z)) = if [last x, head y] `anyEq` "./"
 title :: String -> String
 title (c:cs) = toUpper c : cs
 
-doubleMap :: (a -> b) -> [[a]] -> [[b]]
-doubleMap f = map $ map f
+twoMap :: (a -> b) -> [[a]] -> [[b]]
+twoMap = fmap . fmap
 
 lowerCase, upperCase, titleCase, camelCase :: [String] -> [String]
 
-lowerCase = doubleMap toLower
-upperCase = doubleMap toUpper
+lowerCase = twoMap toLower
+upperCase = twoMap toUpper
 
-titleCase = map title
+titleCase = fmap title
 
 camelCase [] = []
 camelCase [x] = [x]
-camelCase (x:xs) = x : map title xs
+camelCase (x:xs) = x : fmap title xs
 
 -- Sanitisation ----------
 
 clude :: (Foldable t, Eq a) => (Bool -> Bool) -> t a -> [[a]] -> [[a]]
-clude neg s = map $ filter (neg . (`elem` s))
+clude neg s = fmap $ filter (neg . (`elem` s))
 
 include, exclude :: (Foldable t, Eq a) => t a -> [[a]] -> [[a]]
 
@@ -187,54 +185,65 @@ createSmart :: String -> IO ()
 createSmart "" = return ()
 createSmart s = if '.' `elem` s then createFile s else createDir s
 
-errorMsg, fileMsg, dirMsg :: String -> String
+errorMsg :: String -> String
 errorMsg s = red $ indent ++ "-- " ++ s
-
-fileMsg = blue . shrink
-dirMsg = green . shrink
 
 skipMsg :: String
 
 skipMsg = errorMsg "Exists. Not touched."
 
+fileMsg, dirMsg :: (String -> String) -> String -> String
+
+fileMsg color = color . shrink
+dirMsg color = fileMsg color . (++ "/")
+
+fileSuccess, dirSuccess, dirFailure :: String -> String
+
+fileSuccess = fileMsg blue
+dirSuccess = dirMsg green
+dirFailure = dirMsg red
+
 createOutput :: (String -> IO Bool) -> (String -> IO a) -> (String -> String) -> String -> IO ()
-createOutput existF createF fileDirMsg s = do
-    exists <- existF s
-    if not exists
-       then createF s >> putStrLn (fileDirMsg s)
-       else putStrLn $ skipMsg
+createOutput existF createF successMsgF s = existCheck existF exists notExists s
+    where exists = putStr (red s) >> putStrLn skipMsg
+          notExists = createF s >> putStrLn (successMsgF s)
 
 createFile, createDir :: String -> IO ()
 
-createFile s = createOutput doesFileExist (\s -> writeFile s "") fileMsg s
-createDir s = createOutput doesDirectoryExist createDirectory dirMsg s
+createFile s = createOutput doesFileExist (\s -> writeFile s "") fileSuccess s
+createDir s = createOutput doesDirectoryExist createDirectory dirSuccess s
 
 mkDirPath :: [String] -> IO ()
 mkDirPath [""] = return ()
 mkDirPath [x] = mkCheck x [""]
 mkDirPath (x:xs) = mkCheck x xs
 
+existCheck :: Monad m => (t -> m Bool) -> m b -> m b -> t -> m b
+existCheck existF exists notExists s = do
+    yes <- existF s
+    if yes then exists else notExists
+
 mkCheck, mkStep, skipStep :: String -> [String] -> IO ()
 
-mkCheck x xs = do exists <- doesDirectoryExist x
-                  if not exists
-                     then mkStep x xs
-                     else skipStep x xs
-
-mkStep "" [""] = return ()
-mkStep x [""] = createStep x
-mkStep x [y] = createStep x >> putStr (green $ shrink x ++ "/") >> mkStep y [""]
-mkStep x (y:ys) = createStep x >> putStr (green $ shrink x ++ "/") >> mkStep y ys
+mkCheck x xs = existCheck doesDirectoryExist (skipStep x xs) (mkStep x xs) x
 
 skipStep "" [""] = return ()
-skipStep x [""] = skipMk x >> return ()
-skipStep x z = skipMk x >> mkDirPath z
+skipStep x [""] = skip x
+skipStep x xs = skip x >> mkDirPath xs
 
-skipMk, createStep :: String -> IO ()
+mkStep "" [""] = return ()
+mkStep x [""] = mk x
+mkStep x [y] = mk x >> mkStep y [""]
+mkStep x (y:ys) = mk x >> mkStep y ys
 
-skipMk x = setCurrentDirectory x >> putStr (red $ shrink x ++ "/")
+skip, mk :: String -> IO ()
 
-createStep x = createDirectory x >> setCurrentDirectory x
+skip x = setCurrentDirectory x >> putStr (dirFailure x)
+
+mk x = do
+    createDirectory x
+    setCurrentDirectory x
+    putStr (dirSuccess x)
 
 input :: String -> String -> String -> String -> String -> IO ()
 input op token char ext san = do
