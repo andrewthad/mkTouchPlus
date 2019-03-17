@@ -8,6 +8,7 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, get
 
 main = input "" "" "" "" ""
 
+b = maker "" "h" "" "" ""
 o = maker "" "" "" "" ""
 e = maker "echo" "h" "u" "" ""
 s = maker "smart" "h" "c" "l" ""
@@ -190,7 +191,7 @@ errorMsg s = red $ indent ++ "-- " ++ s
 
 skipMsg :: String
 
-skipMsg = errorMsg "Exists. Not touched."
+skipMsg = errorMsg "Not touched."
 
 fileMsg, dirMsg :: (String -> String) -> String -> String
 
@@ -214,8 +215,9 @@ createFile s = createOutput doesFileExist (\s -> writeFile s "") fileSuccess s
 createDir s = createOutput doesDirectoryExist createDirectory dirSuccess s
 
 mkDirPath :: [String] -> IO ()
+mkDirPath [] = return ()
 mkDirPath [""] = return ()
-mkDirPath [x] = mkCheck x [""]
+mkDirPath [x] = mkCheck x []
 mkDirPath (x:xs) = mkCheck x xs
 
 existCheck :: Monad m => (t -> m Bool) -> m b -> m b -> t -> m b
@@ -227,11 +229,15 @@ mkCheck, mkStep, skipStep :: String -> [String] -> IO ()
 
 mkCheck x xs = existCheck doesDirectoryExist (skipStep x xs) (mkStep x xs) x
 
+skipStep "" [] = return ()
 skipStep "" [""] = return ()
+skipStep x [] = skip x
 skipStep x [""] = skip x
 skipStep x xs = skip x >> mkDirPath xs
 
+mkStep "" [] = return ()
 mkStep "" [""] = return ()
+mkStep x [] = mk x
 mkStep x [""] = mk x
 mkStep x [y] = mk x >> mkStep y [""]
 mkStep x (y:ys) = mk x >> mkStep y ys
@@ -246,10 +252,10 @@ mk x = do
     putStr (dirSuccess x)
 
 input :: String -> String -> String -> String -> String -> IO ()
-input op token char ext san = do
+input op sep char ext san = do
     putStrLn (blue "Enter a path:")
     s <- getLine
-    maker op token char ext san s
+    maker op sep char ext san s
 
 output :: [String] -> String -> String -> String -> IO ()
 output p n e op = let neS = nameExtDot n e
@@ -275,15 +281,15 @@ help = concat [ "\n"
 
 -- Composition ----------
 
-tokenChoice, caseChoice, extChoice, sanitiseChoice :: String -> ([String] -> [String])
+sepChoice, caseChoice, extChoice, sanitiseChoice :: String -> ([String] -> [String])
 
-tokenChoice token | eitherSep "h" "hyphenSep" = hyphenSep
+sepChoice sep | eitherSep "h" "hyphenSep" = hyphenSep
                   | eitherSep "s" "snakeSep"  = snakeSep
                   | eitherSep "d" "dotSep"    = dotSep
                   | eitherSep "S" "spaceSep"  = spaceSep
                   | eitherSep "n" "noSep"     = id
                   | otherwise                 = id
-                    where eitherSep = eitherEq token
+                    where eitherSep = eitherEq sep
 
 caseChoice charCase | eitherCase "l" "lowerCase" = lowerCase
                     | eitherCase "u" "upperCase" = upperCase
@@ -295,7 +301,7 @@ caseChoice charCase | eitherCase "l" "lowerCase" = lowerCase
 
 extChoice ext | null ext               = extSep
               | eitherExt "e" "extSep" = extSep
-              | otherwise              = tokenChoice ext
+              | otherwise              = sepChoice ext
                 where eitherExt = eitherEq ext
 
 sanitiseChoice san = noNulls . sanitiser san
@@ -316,13 +322,13 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                         where eitherCreate = eitherEq createOp
 
 maker :: String -> String -> String -> String -> String -> String -> IO ()
-maker op token char ext san ""   = input op token char ext san
-maker op token char ext san name = if eitherEq name "-h" "--help"
+maker op sep char ext san ""   = input op sep char ext san
+maker op sep char ext san name = if eitherEq name "-h" "--help"
                                       then putStrLn help
                                       else creator $ triApply pathF nameF extF <$> pathNameExt <$> multi name
-    where pathF = sanCase <$> splitWith "/"
-          nameF = tokenApply $ tokenChoice token . sanCase
+    where pathF = \s -> tokenSepSanCase <$> splitWith "/" s
+          nameF = tokenSepSanCase
           extF  = tokenApply $ extChoice ext . sanitiseChoice san
           creator x = putLineSurround $ sequence_ [output p n e op | (p,n,e) <- x]
           tokenApply f = concat . f <$> tokens
-          sanCase = sanitiseChoice san . caseChoice char
+          tokenSepSanCase = tokenApply $ sepChoice sep . sanitiseChoice san . caseChoice char
