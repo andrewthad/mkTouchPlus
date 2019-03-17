@@ -184,23 +184,27 @@ createSmart :: String -> IO ()
 createSmart "" = return ()
 createSmart s = if '.' `elem` s then createFile s else createDir s
 
-skipMsg :: (String -> String) -> String -> String
-skipMsg color s = concat [red (s ++ indent ++ "-- ")
-                         , color s
-                         , " "
-                         , red "hasn't been overwritten."]
+errorMsg, fileMsg, dirMsg :: String -> String
+errorMsg s = red $ indent ++ "-- " ++ s
+
+fileMsg = blue . shrink
+dirMsg = green . shrink
+
+skipMsg :: String
+
+skipMsg = errorMsg "Exists. Not touched."
 
 createOutput :: (String -> IO Bool) -> (String -> IO a) -> (String -> String) -> String -> IO ()
-createOutput existF createF colorF s = do
+createOutput existF createF fileDirMsg s = do
     exists <- existF s
     if not exists
-       then createF s >> putStrLn (colorF $ shrink s)
-       else putStrLn $ skipMsg colorF (shrink s)
+       then createF s >> putStrLn (fileDirMsg s)
+       else putStrLn $ skipMsg
 
 createFile, createDir :: String -> IO ()
 
-createFile s = createOutput doesFileExist (\s -> writeFile s "") blue s
-createDir s = createOutput doesDirectoryExist createDirectory green s
+createFile s = createOutput doesFileExist (\s -> writeFile s "") fileMsg s
+createDir s = createOutput doesDirectoryExist createDirectory dirMsg s
 
 mkDirPath :: [String] -> IO ()
 mkDirPath [""] = return ()
@@ -231,7 +235,7 @@ createStep x = createDirectory x >> setCurrentDirectory x
 
 input :: String -> String -> String -> String -> String -> IO ()
 input op token char ext san = do
-    putStrLn "Enter a path:"
+    putStrLn (blue "Enter a path:")
     s <- getLine
     maker op token char ext san s
 
@@ -242,11 +246,10 @@ output p n e op = let neS = nameExtDot n e
                   in if eitherEq op "e" "echo"
                         then createChoice op nepS
                         else do
-                            origDir <- getCurrentDirectory
+                            cd <- getCurrentDirectory
                             mkDirPath p
                             createChoice op neS
-                            setCurrentDirectory origDir
-                            return ()
+                            setCurrentDirectory cd
 
 -- Composition ----------
 
