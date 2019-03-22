@@ -4,14 +4,7 @@ import Data.Char (isSpace, toLower, toUpper)
 import Data.Function ((&), on)
 import Data.List (groupBy, intercalate, intersperse, span)
 import System.IO (writeFile)
-import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, getCurrentDirectory, setCurrentDirectory)
-
--- import System.Environment
--- import System.IO
-import System.IO.Error
-import Control.Exception
-
--- TODO: make / at the start of path set cd to home. if string starts with "/" (discounting spaces), setCurrentDirectory "/" at the start of composition, and set back to cd at the end
+import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, getCurrentDirectory, setCurrentDirectory, getHomeDirectory)
 
 main = input "" "" "" "" ""
 
@@ -89,12 +82,9 @@ nameExt s = let dot = '.' in if dot `elem` s then splitLast [dot] s else (s,"")
 
 pathFile = splitLast "/"
 
--- TODO: tidy
 pathNameExt :: String -> (String, String, String, String)
-pathNameExt s = let x = pathFile `second` homePath s
-                    y = x & \ (a,(b,c)) -> (a,b,nameExt c)
-                    z = y & \ (a,b,(c,d)) -> (a,b,c,d)
-                 in z
+pathNameExt s = (\ x -> nameExt `second` pathFile x) `second` homePath s
+                & \ (a,(b,(c,d))) -> (a,b,c,d)
 
 quadApply :: (t1 -> a) -> (t2 -> b) -> (t3 -> c) -> (t4 -> d) -> (t1, t2, t3, t4) -> (a, b, c, d)
 quadApply fa fb fc fd (a, b, c, d) = (fa a, fb b, fc c, fd d)
@@ -276,21 +266,18 @@ output :: String -> [String] -> String -> String -> String -> IO ()
 output h p n e op | eitherEq op "e" "echo" = createChoice op nepS
                   | otherwise = do
                       cd <- getCurrentDirectory
-                      goHome `catch` permissionHandler
+                      goHome h
                       mkDirPath p
                       createChoice op neS
                       setCurrentDirectory cd
                    where neS = nameExtDot n e
                          pS  = intercalate "/" p ++ "/"
                          nepS = pS ++ neS
-                         goHome = if h == "/"
-                                     then setCurrentDirectory h
-                                     else return ()
 
-permissionHandler :: IOError -> IO ()
-permissionHandler e | isDoesNotExistError e = putStrLn "Home doesn't exist"
-                    | isPermissionError e = putStrLn "Home isn't writable"
-                    | otherwise = ioError e
+goHome :: String -> IO ()
+goHome s = do
+    home <- getHomeDirectory
+    if s == "/" then setCurrentDirectory home else return ()
 
 help :: String
 help = concat [ "\n"
@@ -346,10 +333,7 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
 maker :: String -> String -> String -> String -> String -> String -> IO ()
 maker op sep char ext san name | eitherEq name "-h" "--help" = putStrLn help
                                | isBlank name = input op sep char ext san
-                               | otherwise =
-                                          creator
-                                          -- putStrLn $ show
-                                          $ quadApply homeF pathF nameF extF <$> pathNameExt <$> multi name
+                               | otherwise = creator $ quadApply homeF pathF nameF extF <$> pathNameExt <$> multi name
     where homeF = dropWhile isSpace
           pathF = \s -> noNulls $ tokenSepSanCase <$> splitWith "/" s
           nameF = tokenSepSanCase
