@@ -6,16 +6,7 @@ import Data.List (groupBy, intercalate, intersperse)
 import System.IO (writeFile)
 import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, getCurrentDirectory, setCurrentDirectory)
 
--- TODO: make this work again:
--- The problem originates in the mkdirpath Im almost certain
--- o "a/b/c/d"
-
--- TODO: test mapping to it in bash
--- TODO: make the following work:
--- o "  / /   /  /"
--- o "123 / 324/ /   / "
--- o "a/b/c/d/"
--- TODO: make / at the start of path set cd to home
+-- TODO: make / at the start of path set cd to home. if string starts with "/" (discounting spaces), setCurrentDirectory "/" at the start of composition, and set back to cd at the end
 
 main = input "" "" "" "" ""
 
@@ -232,12 +223,6 @@ createFile s = createOutput doesFileExist (\s -> writeFile s "") fileSuccess s
 createDir "" = return ()
 createDir s = createOutput doesDirectoryExist createDirectory dirSuccess s
 
--- mkDirPath :: [String] -> IO ()
--- mkDirPath [] = return ()
--- mkDirPath [""] = return ()
--- mkDirPath [x] = mkCheck x []
--- mkDirPath (x:xs) = mkCheck x xs
-
 existCheck :: Monad m => (t -> m Bool) -> m b -> m b -> t -> m b
 existCheck existF exists notExists s = do
     yes <- existF s
@@ -246,67 +231,29 @@ existCheck existF exists notExists s = do
 mkDirPath :: [String] -> IO ()
 mkDirPath = mapM_ mkStep
 
+mkStep, skip, make :: String -> IO ()
+
 mkStep "" = return ()
-mkStep s = existCheck doesDirectoryExist (skip s) (mk s) s
+mkStep ".." = parentStep
+mkStep s = existCheck doesDirectoryExist (skip s) (make s) s
 
 skip "" = return ()
 skip s = do
     setCurrentDirectory s
     putStr (dirFailure s)
 
-mk "" = return ()
-mk s = do
+make "" = return ()
+make s = do
     createDirectory s
     setCurrentDirectory s
     putStr (dirSuccess s)
 
--- maintainCd :: IO a -> IO ()
--- maintainCd x = do
---     cd <- getCurrentDirectory
---     x
---     setCd cd
-
--- mkCheck, mkStep, skipStep :: String -> [String] -> IO ()
---
--- mkCheck ".." [] = return ()
--- mkCheck x [] = mkChoice x []
--- mkCheck ".." xs = mkParent xs
--- mkCheck x xs = mkChoice x xs
---
--- mkParent :: [String] -> IO ()
--- mkParent x = do
---     cd <- getCurrentDirectory
---     let parent = fst $ pathFile cd
---         exists = do setCd parent
---                     putStr (green "../")
---                     mkDirPath x
---         notExists = mkDirPath x
---     existCheck doesDirectoryExist exists notExists parent
---
---
--- mkChoice :: String -> [String] -> IO ()
--- mkChoice x xs = existCheck doesDirectoryExist (skipStep x xs) (mkStep x xs) x
---
--- skipStep "" [] = return ()
--- skipStep x [] = skip x
--- skipStep x xs = skip x >> mkDirPath xs
---
--- mkStep "" [] = return ()
--- mkStep x [] = mk x
--- mkStep x [y] = mk x >> mkCheck y [""]
--- mkStep x (y:ys) = mk x >> mkCheck y ys
---
--- skip, mk :: String -> IO ()
---
--- skip x = setCd x >> putStr (dirFailure x)
---
--- mk x = do
---     createDir x
---     setCd x
---     putStr (dirSuccess x)
-
-setCd :: String -> IO ()
-setCd s = existCheck doesDirectoryExist (setCurrentDirectory s) (return ()) s
+parentStep :: IO ()
+parentStep = do
+    cd <- getCurrentDirectory
+    let parent = fst $ pathFile cd
+        ifExists = setCurrentDirectory parent >> putStr "../"
+    existCheck doesDirectoryExist ifExists (return ()) parent
 
 input :: String -> String -> String -> String -> String -> IO ()
 input op sep char ext san = do
@@ -320,7 +267,7 @@ output p n e op | eitherEq op "e" "echo" = createChoice op nepS
                     cd <- getCurrentDirectory
                     mkDirPath p
                     createChoice op neS
-                    setCd cd
+                    setCurrentDirectory cd
                  where neS = nameExtDot n e
                        pS  = intercalate "/" p ++ "/"
                        nepS = pS ++ neS
