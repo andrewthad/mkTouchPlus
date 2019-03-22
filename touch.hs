@@ -2,9 +2,14 @@ import Control.Applicative (liftA2)
 import Control.Arrow ((&&&), second)
 import Data.Char (isSpace, toLower, toUpper)
 import Data.Function ((&), on)
-import Data.List (groupBy, intercalate, intersperse)
+import Data.List (groupBy, intercalate, intersperse, span)
 import System.IO (writeFile)
 import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, getCurrentDirectory, setCurrentDirectory)
+
+-- import System.Environment
+-- import System.IO
+import System.IO.Error
+import Control.Exception
 
 -- TODO: make / at the start of path set cd to home. if string starts with "/" (discounting spaces), setCurrentDirectory "/" at the start of composition, and set back to cd at the end
 
@@ -76,17 +81,23 @@ noNulls = filter notNull
 splitLast :: String -> String -> (String, String)
 splitLast s = (intercalate s . init &&& last) . splitWith s
 
-nameExt, pathFile :: String -> (String, String)
+homePath, nameExt, pathFile :: String -> (String, String)
+
+homePath = span (\ c -> eitherEq c ' ' '/')
 
 nameExt s = let dot = '.' in if dot `elem` s then splitLast [dot] s else (s,"")
 
 pathFile = splitLast "/"
 
-pathNameExt :: String -> (String, String, String)
-pathNameExt s = nameExt `second` pathFile s & \(a,(b,c)) -> (a,b,c)
+-- TODO: tidy
+pathNameExt :: String -> (String, String, String, String)
+pathNameExt s = let x = pathFile `second` homePath s
+                    y = x & \ (a,(b,c)) -> (a,b,nameExt c)
+                    z = y & \ (a,b,(c,d)) -> (a,b,c,d)
+                 in z
 
-triApply :: (t1 -> a) -> (t2 -> b) -> (t3 -> c) -> (t1, t2, t3) -> (a, b, c)
-triApply fa fb fc (a, b, c) = (fa a, fb b, fc c)
+quadApply :: (t1 -> a) -> (t2 -> b) -> (t3 -> c) -> (t4 -> d) -> (t1, t2, t3, t4) -> (a, b, c, d)
+quadApply fa fb fc fd (a, b, c, d) = (fa a, fb b, fc c, fd d)
 
 nameExtDot :: String -> String -> String
 nameExtDot "" "" = ""
@@ -261,16 +272,25 @@ input op sep char ext san = do
     s <- getLine
     maker op sep char ext san s
 
-output :: [String] -> String -> String -> String -> IO ()
-output p n e op | eitherEq op "e" "echo" = createChoice op nepS
-                | otherwise = do
-                    cd <- getCurrentDirectory
-                    mkDirPath p
-                    createChoice op neS
-                    setCurrentDirectory cd
-                 where neS = nameExtDot n e
-                       pS  = intercalate "/" p ++ "/"
-                       nepS = pS ++ neS
+output :: String -> [String] -> String -> String -> String -> IO ()
+output h p n e op | eitherEq op "e" "echo" = createChoice op nepS
+                  | otherwise = do
+                      cd <- getCurrentDirectory
+                      goHome `catch` permissionHandler
+                      mkDirPath p
+                      createChoice op neS
+                      setCurrentDirectory cd
+                   where neS = nameExtDot n e
+                         pS  = intercalate "/" p ++ "/"
+                         nepS = pS ++ neS
+                         goHome = if h == "/"
+                                     then setCurrentDirectory h
+                                     else return ()
+
+permissionHandler :: IOError -> IO ()
+permissionHandler e | isDoesNotExistError e = putStrLn "Home doesn't exist"
+                    | isPermissionError e = putStrLn "Home isn't writable"
+                    | otherwise = ioError e
 
 help :: String
 help = concat [ "\n"
@@ -329,10 +349,11 @@ maker op sep char ext san name | eitherEq name "-h" "--help" = putStrLn help
                                | otherwise =
                                           creator
                                           -- putStrLn $ show
-                                          $ triApply pathF nameF extF <$> pathNameExt <$> multi name
-    where pathF = \s -> noNulls $ tokenSepSanCase <$> splitWith "/" s
+                                          $ quadApply homeF pathF nameF extF <$> pathNameExt <$> multi name
+    where homeF = dropWhile isSpace
+          pathF = \s -> noNulls $ tokenSepSanCase <$> splitWith "/" s
           nameF = tokenSepSanCase
           extF  = tokenApply $ extChoice ext . sanitiseChoice san
-          creator x = putLineSurround $ sequence_ [output p n e op | (p,n,e) <- x]
+          creator x = putLineSurround $ sequence_ [output h p n e op | (h,p,n,e) <- x]
           tokenApply f = concat . f <$> tokens
           tokenSepSanCase = tokenApply $ sepChoice sep . sanitiseChoice san . caseChoice char
