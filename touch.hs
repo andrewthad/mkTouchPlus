@@ -1,14 +1,21 @@
 import Control.Applicative (liftA2)
 import Control.Arrow ((&&&), second)
-import Data.Char (toLower, toUpper)
+import Data.Char (isSpace, toLower, toUpper)
 import Data.Function ((&), on)
 import Data.List (groupBy, intercalate, intersperse)
 import System.IO (writeFile)
 import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, getCurrentDirectory, setCurrentDirectory)
 
--- TODO: make ../ work in the middle of a path
+-- TODO: make this work again:
+-- The problem originates in the mkdirpath Im almost certain
+-- o "a/b/c/d"
+
+-- TODO: test mapping to it in bash
+-- TODO: make the following work:
+-- o "  / /   /  /"
+-- o "123 / 324/ /   / "
+-- o "a/b/c/d/"
 -- TODO: make / at the start of path set cd to home
--- TODO: make test// work. two slashes in a row causes error
 
 main = input "" "" "" "" ""
 
@@ -19,10 +26,11 @@ s = maker "smart" "h" "c" "l" ""
 
 -- Constants ----------
 
-name, version, indent :: String
+name, version, readme, indent :: String
 
 name = "Nice Touch"
 version = "v" ++ show 1.0
+readme = "https://www.com"
 
 indent = replicate 2 ' '
 
@@ -62,6 +70,9 @@ shrink = shrinkTo 21
 
 twoNL :: String
 twoNL = "\n\n"
+
+isBlank :: String -> Bool
+isBlank = all isSpace
 
 -- Tokenisation ----------
 
@@ -215,58 +226,87 @@ createOutput existF createF successMsgF s = existCheck existF exists notExists s
 
 createFile, createDir :: String -> IO ()
 
+createFile "" = return ()
 createFile s = createOutput doesFileExist (\s -> writeFile s "") fileSuccess s
+
+createDir "" = return ()
 createDir s = createOutput doesDirectoryExist createDirectory dirSuccess s
 
-mkDirPath :: [String] -> IO ()
-mkDirPath [] = return ()
-mkDirPath [""] = return ()
-mkDirPath [x] = mkCheck x []
-mkDirPath (x:xs) = mkCheck x xs
+-- mkDirPath :: [String] -> IO ()
+-- mkDirPath [] = return ()
+-- mkDirPath [""] = return ()
+-- mkDirPath [x] = mkCheck x []
+-- mkDirPath (x:xs) = mkCheck x xs
 
 existCheck :: Monad m => (t -> m Bool) -> m b -> m b -> t -> m b
 existCheck existF exists notExists s = do
     yes <- existF s
     if yes then exists else notExists
 
-mkCheck, mkStep, skipStep :: String -> [String] -> IO ()
+mkDirPath :: [String] -> IO ()
+mkDirPath = mapM_ mkStep
 
-mkCheck ".." [] = return ()
-mkCheck x [] = mkChoice x []
-mkCheck ".." xs = mkParent xs
-mkCheck x xs = mkChoice x xs
+mkStep "" = return ()
+mkStep s = existCheck doesDirectoryExist (skip s) (mk s) s
 
-mkParent :: [String] -> IO ()
-mkParent x = do
-    cd <- getCurrentDirectory
-    let parent = fst $ pathFile cd
-        exists = do setCurrentDirectory parent
-                    putStr (green "../")
-                    mkDirPath x
-        notExists = mkDirPath x
-    existCheck doesDirectoryExist exists notExists parent
+skip "" = return ()
+skip s = do
+    setCurrentDirectory s
+    putStr (dirFailure s)
 
+mk "" = return ()
+mk s = do
+    createDirectory s
+    setCurrentDirectory s
+    putStr (dirSuccess s)
 
-mkChoice :: String -> [String] -> IO ()
-mkChoice x xs = existCheck doesDirectoryExist (skipStep x xs) (mkStep x xs) x
+-- maintainCd :: IO a -> IO ()
+-- maintainCd x = do
+--     cd <- getCurrentDirectory
+--     x
+--     setCd cd
 
-skipStep "" [] = return ()
-skipStep x [] = skip x
-skipStep x xs = skip x >> mkDirPath xs
+-- mkCheck, mkStep, skipStep :: String -> [String] -> IO ()
+--
+-- mkCheck ".." [] = return ()
+-- mkCheck x [] = mkChoice x []
+-- mkCheck ".." xs = mkParent xs
+-- mkCheck x xs = mkChoice x xs
+--
+-- mkParent :: [String] -> IO ()
+-- mkParent x = do
+--     cd <- getCurrentDirectory
+--     let parent = fst $ pathFile cd
+--         exists = do setCd parent
+--                     putStr (green "../")
+--                     mkDirPath x
+--         notExists = mkDirPath x
+--     existCheck doesDirectoryExist exists notExists parent
+--
+--
+-- mkChoice :: String -> [String] -> IO ()
+-- mkChoice x xs = existCheck doesDirectoryExist (skipStep x xs) (mkStep x xs) x
+--
+-- skipStep "" [] = return ()
+-- skipStep x [] = skip x
+-- skipStep x xs = skip x >> mkDirPath xs
+--
+-- mkStep "" [] = return ()
+-- mkStep x [] = mk x
+-- mkStep x [y] = mk x >> mkCheck y [""]
+-- mkStep x (y:ys) = mk x >> mkCheck y ys
+--
+-- skip, mk :: String -> IO ()
+--
+-- skip x = setCd x >> putStr (dirFailure x)
+--
+-- mk x = do
+--     createDir x
+--     setCd x
+--     putStr (dirSuccess x)
 
-mkStep "" [] = return ()
-mkStep x [] = mk x
-mkStep x [y] = mk x >> mkCheck y [""]
-mkStep x (y:ys) = mk x >> mkCheck y ys
-
-skip, mk :: String -> IO ()
-
-skip x = setCurrentDirectory x >> putStr (dirFailure x)
-
-mk x = do
-    createDirectory x
-    setCurrentDirectory x
-    putStr (dirSuccess x)
+setCd :: String -> IO ()
+setCd s = existCheck doesDirectoryExist (setCurrentDirectory s) (return ()) s
 
 input :: String -> String -> String -> String -> String -> IO ()
 input op sep char ext san = do
@@ -275,16 +315,15 @@ input op sep char ext san = do
     maker op sep char ext san s
 
 output :: [String] -> String -> String -> String -> IO ()
-output p n e op = let neS = nameExtDot n e
-                      pS  = intercalate "/" p ++ "/"
-                      nepS = pS ++ neS
-                  in if eitherEq op "e" "echo"
-                        then createChoice op nepS
-                        else do
-                            cd <- getCurrentDirectory
-                            mkDirPath p
-                            createChoice op neS
-                            setCurrentDirectory cd
+output p n e op | eitherEq op "e" "echo" = createChoice op nepS
+                | otherwise = do
+                    cd <- getCurrentDirectory
+                    mkDirPath p
+                    createChoice op neS
+                    setCd cd
+                 where neS = nameExtDot n e
+                       pS  = intercalate "/" p ++ "/"
+                       nepS = pS ++ neS
 
 help :: String
 help = concat [ "\n"
@@ -292,7 +331,7 @@ help = concat [ "\n"
               , twoNL
               , "For help, open the readme in your browser:"
               , twoNL
-              , blue "https://www.com"
+              , blue readme
               , "\n" ]
 
 -- Composition ----------
@@ -331,18 +370,20 @@ sanitiseChoice san = noNulls . sanitiser san
 
 createChoice :: String -> (String -> IO ())
 createChoice createOp | eitherCreate "t" "touch" = createFile
-                      | eitherCreate "m" "mkdir" = createDirectory
+                      | eitherCreate "m" "mkdir" = createDir
                       | eitherCreate "s" "smart" = createSmart
                       | eitherCreate "e" "echo"  = putStrLn
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
 maker :: String -> String -> String -> String -> String -> String -> IO ()
-maker op sep char ext san ""   = input op sep char ext san
-maker op sep char ext san name = if eitherEq name "-h" "--help"
-                                      then putStrLn help
-                                      else creator $ triApply pathF nameF extF <$> pathNameExt <$> multi name
-    where pathF = \s -> tokenSepSanCase <$> splitWith "/" s
+maker op sep char ext san name | eitherEq name "-h" "--help" = putStrLn help
+                               | isBlank name = input op sep char ext san
+                               | otherwise =
+                                          creator
+                                          -- putStrLn $ show
+                                          $ triApply pathF nameF extF <$> pathNameExt <$> multi name
+    where pathF = \s -> noNulls $ tokenSepSanCase <$> splitWith "/" s
           nameF = tokenSepSanCase
           extF  = tokenApply $ extChoice ext . sanitiseChoice san
           creator x = putLineSurround $ sequence_ [output p n e op | (p,n,e) <- x]
