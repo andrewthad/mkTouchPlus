@@ -16,7 +16,6 @@ import System.Directory ( createDirectory
 
 main = input
 
--- TODO: format code
 -- TODO: publish on github and change url
 
 -- Types ----------
@@ -78,7 +77,6 @@ shrinkTo n s = if length s > n
                  else s
 
 shrink :: String -> String
-
 shrink = shrinkTo 21
 
 isBlank :: String -> Bool
@@ -89,10 +87,14 @@ surround s1 s2 s = s1 ++ s ++ s2
 
 spaceSurround :: String -> String
 spaceSurround = surround " " " "
-lineSurround  = surround "\n" "\n"
+lineSurround  = surround "\n" "\n" . (indent ++)
 
 indentAll :: [String] -> [String]
-indentAll = map (indent ++)
+indentAll = map (\ s -> if isBlank s then s else indent ++ s)
+
+head' :: String -> String
+head' ""      = ""
+head' (c:cs)  = [c]
 
 -- Tokenisation ----------
 
@@ -230,9 +232,9 @@ red   = colored 31
 green = colored 32
 blue  = colored 34
 
-createSmart :: String -> IO ()
-createSmart "" = return ()
-createSmart s  = if '.' `elem` s then createFile s else createDir s
+smartCreate :: String -> IO ()
+smartCreate "" = return ()
+smartCreate s  = if '.' `elem` s then fileCreate s else dirCreate s
 
 errorMsg :: String -> String
 errorMsg s = red $ indent ++ "-- " ++ s
@@ -257,13 +259,13 @@ createOutput existF createF successMsgF s = existCheck existF exists notExists s
     where exists    = putStr (red s) >> putStrLn skipMsg
           notExists = createF s >> putStrLn (successMsgF s)
 
-createFile, createDir :: String -> IO ()
+fileCreate, dirCreate :: String -> IO ()
 
-createFile "" = return ()
-createFile s  = createOutput doesFileExist (\s -> writeFile s "") fileSuccess s
+fileCreate "" = return ()
+fileCreate s  = createOutput doesFileExist (\s -> writeFile s "") fileSuccess s
 
-createDir "" = return ()
-createDir s  = createOutput doesDirectoryExist createDirectory dirSuccess s
+dirCreate "" = return ()
+dirCreate s  = createOutput doesDirectoryExist createDirectory dirSuccess s
 
 existCheck :: Monad m => (t -> m Bool) -> m b -> m b -> t -> m b
 existCheck existF exists notExists s = do
@@ -316,17 +318,17 @@ input = getContents >>= run . args
                         , extensionFormat = ""
                         , sanitisation    = ""
                         , name }
-              noInput = putStrLn (lineSurround $ indent ++ red "No input")
+              noInput = putStrLn (lineSurround $ red "No input")
 
 output :: Output -> IO ()
 output (Output {home, path, name, extension, ioOperation})
-  | eitherEq ioOperation "e" "echo" = createChoice ioOperation nep
+  | eitherEq ioOperation "e" "echo" = ioChoice ioOperation nep
   | otherwise = do
       putStr indent
       cd <- getCurrentDirectory
       goHome home
       mkDirPath path
-      createChoice ioOperation ne
+      ioChoice ioOperation ne
       setCurrentDirectory cd
    where ne  = nameExtDot name extension
          p   = intercalate "/" path ++ "/"
@@ -341,7 +343,7 @@ nameVersion :: String
 nameVersion = green $ unwords [appName, versionNum]
 
 version :: String
-version = lineSurround $ indent ++ nameVersion
+version = lineSurround $ nameVersion
 
 help :: String
 help = unlines $ indentAll
@@ -349,88 +351,99 @@ help = unlines $ indentAll
     , "Create one or more files and directory paths, with automatic name\
         \ formatting."
     , lineSurround "Usage:"
-    , green "mkTouchPlus " ++ usage
-    , indent ++ "or"
-    , green "mkTouchPlus " ++ tag "name"
-    , indent ++ "or"
-    , green "mkTouchPlus " ++ tag (slashes $ blue <$> ["-h", "-v"])
+    , command usage
+    , orUsage
+    , command $ tag "name"
+    , orUsage
+    , command $ tag (slashes $ blue <$> ["-h", "-v"])
     , ""
     , indent ++ "where:"
-    , define "ioOperation"     $ values ioOptions
-    , define "separator"       $ values sepOptions
-    , define "characterCase"   $ values caseOptions
-    , define "extensionFormat" $ values extOptions
-    , define "sanitisation"    $ values sanOptions
-    , define "name"            "One or more names for files or directories\
-                                 \ that will be outputted. Continues the\
-                                 \ comma-separated list of arguments."
+    , define "ioOperation"     ioOptions
+    , define "separator"       sepOptions
+    , define "characterCase"   caseOptions
+    , define "extensionFormat" extOptions
+    , define "sanitisation"    sanOptions
+    , definition "name"        nameDefinition
     , lineSurround "For more help, open the readme in your browser:"
     , green readmeUrl ]
-      where define name explanation = concat $
-                [ [1,2] >> indent
-                , take 24 (blue name ++ repeat ' ')
-                , spaceSurround $ green ":"
-                , explanation ]
-            colorHead ""     = ""
-            colorHead (c:cs) = blue [c] ++ cs
-            tag         = surround "[" "]" . blue
-            commas      = intercalate (green ",")
-            slashes     = intercalate (green $ spaceSurround "/")
-            settings    = constrFields . toConstr $ Settings "" "" "" "" "" [""]
-            usage       = commas $ tag <$> settings
-            values x    = slashes $ colorHead <$> x
-            ioOptions   = ["touch", "mkdir", "smart", "echo"]
-            sepOptions  = ["hyphenSep", "snakeSep", "dotSep", "whitespaceSep"]
-            caseOptions = [ "lowerCase"
-                          , "upperCase"
-                          , "titleCase"
-                          , "camelCase"
-                          , "noCase" ]
-            extOptions  = ["extSep"] ++ sepOptions
-            sanOptions  = ["unix", "windows", "mac", "sensible", "conservative"]
+        where command = (green "mkTouchPlus " ++)
+              orUsage = indent ++ "or"
+              col = 24
+              definition name explanation = concat $
+                  [ [1,2] >> indent
+                  , take col (blue name ++ repeat ' ')
+                  , spaceSurround $ green ":"
+                  , explanation ]
+              define name explanation     = definition name (values explanation)
+              colorHead ""     = ""
+              colorHead (c:cs) = blue [c] ++ cs
+              tag              = surround "[" "]" . blue
+              commas           = intercalate (green ",")
+              slashes          = intercalate (green $ spaceSurround "/")
+              settings         = constrFields . toConstr
+                                              $ Settings "" "" "" "" "" [""]
+              usage            = commas $ tag <$> settings
+              values x         = slashes $ colorHead <$> x
+              optionsList      = map fst
+              ioOptions        = optionsList ioChoices
+              sepOptions       = optionsList sepChoices
+              caseOptions      = optionsList caseChoices
+              extOptions       = optionsList extChoices ++ sepOptions
+              sanOptions       = optionsList sanitiseChoices
+              nameDefinition   = unlines
+                  ["One or more names for files or directories that will be"
+                  , replicate col ' '++ indent ++ "outputted. Continues the\
+                      \ comma-separated list of arguments."]
 
 -- Composition ----------
 
+select :: String -> p -> [(String, p)] -> p
+select s otherwise [] = otherwise
+select s otherwise (x:xs) = test s x
+    where test s (a,f) = if eitherEq s (head' a) a
+                            then f
+                            else select s otherwise xs
+
+sepChoices, caseChoices, extChoices, sanitiseChoices
+          :: [(String, [String] -> [String])]
+ioChoices :: [(String, String -> IO ())]
+
+sepChoices = [ ("hyphenSep", hyphenSep)
+             , ("snakeSep", snakeSep)
+             , ("dotSep", dotSep)
+             , ("whitespaceSep", whitespaceSep) ]
+
+caseChoices = [ ("lowerCase", lowerCase)
+              , ("upperCase", upperCase)
+              , ("titleCase", titleCase)
+              , ("camelCase", camelCase)
+              , ("id",id) ]
+
+extChoices = [ ("extSep",extSep) ]
+
+sanitiseChoices = [ ("unix", unix)
+                  , ("windows", windows)
+                  , ("mac", mac)
+                  , ("sensible", sensible)
+                  , ("conservative", conservative) ]
+
+ioChoices = [ ("fileCreate", fileCreate)
+            , ("dirCreate", dirCreate)
+            , ("smartCreate", smartCreate)
+            , ("putStrLn", putStrLn)
+            , ("smartCreate", smartCreate) ]
+
 sepChoice, caseChoice, extChoice, sanitiseChoice
-    :: String -> ([String] -> [String])
+         :: String -> [String] -> [String]
+ioChoice :: String -> String -> IO ()
 
-sepChoice sep | eitherSep "h" "hyphenSep"     = hyphenSep
-              | eitherSep "s" "snakeSep"      = snakeSep
-              | eitherSep "d" "dotSep"        = dotSep
-              | eitherSep "w" "whitespaceSep" = whitespaceSep
-              | eitherSep "n" "noSep"         = id
-              | otherwise                     = hyphenSep
-                where eitherSep = eitherEq sep
-
-caseChoice characterCase | eitherCase "l" "lowerCase" = lowerCase
-                         | eitherCase "u" "upperCase" = upperCase
-                         | eitherCase "t" "titleCase" = titleCase
-                         | eitherCase "c" "camelCase" = camelCase
-                         | eitherCase "n" "noCase"    = id
-                         | otherwise                  = id
-                           where eitherCase = eitherEq characterCase
-
-extChoice ext | null ext               = extSep
-              | eitherExt "e" "extSep" = extSep
-              | otherwise              = sepChoice ext
-                where eitherExt = eitherEq ext
-
-sanitiseChoice san = noNulls . sanitiser san
-    where eitherSan = eitherEq san
-          sanitiser san | eitherSan "u" "unix"         = unix
-                        | eitherSan "w" "windows"      = windows
-                        | eitherSan "m" "mac"          = mac
-                        | eitherSan "s" "sensible"     = sensible
-                        | eitherSan "c" "conservative" = conservative
-                        | otherwise                    = sensible
-
-createChoice :: String -> (String -> IO ())
-createChoice createOp | eitherCreate "t" "touch" = createFile
-                      | eitherCreate "m" "mkdir" = createDir
-                      | eitherCreate "s" "smart" = createSmart
-                      | eitherCreate "e" "echo"  = putStrLn
-                      | otherwise                = createSmart
-                        where eitherCreate = eitherEq createOp
+sepChoice separator         = select separator hyphenSep sepChoices
+caseChoice characterCase    = select characterCase id caseChoices
+extChoice extensionFormat   = select extensionFormat
+                                  (sepChoice extensionFormat)
+                                  extChoices
+sanitiseChoice sanitisation = select sanitisation sensible sanitiseChoices
+ioChoice ioOperation        = select ioOperation smartCreate ioChoices
 
 mkTouchPlus :: Settings -> IO ()
 mkTouchPlus (Settings { ioOperation
@@ -446,7 +459,7 @@ mkTouchPlus (Settings { ioOperation
           pathF = \s -> noNulls $ tokenSepSanCase <$> splitWith "/" s
           nameF = tokenSepSanCase
           extF  = tokenApply $ extChoice extensionFormat
-                             . sanitiseChoice sanitisation
+                             . san
           creator x = putLineSurround $ sequence_
               [output (Output { home      = h
                               , path      = p
@@ -455,5 +468,6 @@ mkTouchPlus (Settings { ioOperation
                               , ioOperation }) | (h,p,n,e) <- x]
           tokenApply f    = concat . f <$> tokens
           tokenSepSanCase = tokenApply $ sepChoice separator
-                                       . sanitiseChoice sanitisation
+                                       . san
                                        . caseChoice characterCase
+          san = noNulls . sanitiseChoice sanitisation
