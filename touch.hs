@@ -11,6 +11,8 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, get
 
 main = input
 
+-- TODO: make indent consistent across io
+
 -- Types ----------
 
 data Settings = Settings { ioOperation :: String
@@ -79,8 +81,15 @@ isBlank = all isSpace
 surround :: String -> String -> String -> String
 surround s1 s2 s = s1 ++ s ++ s2
 
-surroundSpace :: String -> String
-surroundSpace = surround " " " "
+spaceSurround :: String -> String
+
+spaceSurround = surround " " " "
+
+duplicate :: Int -> String -> String
+duplicate n s = [1..n] >> s
+
+indentAll :: [String] -> [String]
+indentAll = map (indent ++)
 
 -- Tokenisation ----------
 
@@ -126,7 +135,7 @@ hyphenSep, snakeSep, dotSep, extSep :: [String] -> [String]
 hyphenSep = interSep "-"
 snakeSep = interSep "_"
 dotSep = interSep "."
-spaceSep = interSep " "
+whitespaceSep = interSep " "
 extSep = (\x -> [x]) . concat
 
 interSep :: String -> [String] -> [String]
@@ -328,28 +337,36 @@ version :: String
 version = surround "\n" "\n" nameVersion
 
 help :: String
-help = unlines
+help = unlines $ indentAll
     [ ""
     , nameVersion
     , ""
     , "Create one or more files and directory paths, with automatic name formatting."
     , ""
-    , "Usage:" ++ surroundSpace (green appName) ++ usage
+    , "Usage:"
+    , ""
+    , concat [green appName, " ", usage]
     , ""
     , indent ++ green "where:"
-    , define "ioOperation"     "lorem"
-    , define "separator"       "lorem"
-    , define "characterCase"   "lorem"
-    , define "extensionFormat" "lorem"
-    , define "sanitisation"    "lorem"
+    , define "ioOperation"     $ values ioOptions
+    , define "separator"       $ values sepOptions
+    , define "characterCase"   $ values caseOptions
+    , define "extensionFormat" $ values extOptions
+    , define "sanitisation"    $ values sanOptions
     , define "name"            "lorem"
     , ""
     , "For more help, open the readme in your browser:"
     , ""
     , green readmeUrl ]
-      where define name explanation = concat [ [1,2] >> indent , take 24 (blue name ++ repeat ' ') , surroundSpace $ green ":" , explanation ]
+      where define name explanation = concat [ duplicate 2 indent , take 24 (blue name ++ repeat ' ') , spaceSurround $ green ":" , explanation ]
             settings = constrFields . toConstr $ Settings "" "" "" "" "" [""]
             usage = intercalate (green ",") $ (\ s -> surround "[" "]" (blue s)) <$> settings
+            values x = intercalate (green $ spaceSurround "/") $ (\ (c:cs) -> blue [c] ++ cs) <$> x
+            ioOptions = ["touch", "mkdir", "smart", "echo"]
+            sepOptions = ["hyphenSep", "snakeSep", "dotSep", "whitespaceSep"]
+            caseOptions = ["lowerCase", "upperCase", "titleCase", "camelCase", "noCase"]
+            extOptions = ["extSep"] ++ sepOptions
+            sanOptions = ["unix", "windows", "mac", "sensible", "conservative"]
 
 -- Composition ----------
 
@@ -358,7 +375,7 @@ sepChoice, caseChoice, extChoice, sanitiseChoice :: String -> ([String] -> [Stri
 sepChoice sep | eitherSep "h" "hyphenSep" = hyphenSep
               | eitherSep "s" "snakeSep"  = snakeSep
               | eitherSep "d" "dotSep"    = dotSep
-              | eitherSep "S" "spaceSep"  = spaceSep
+              | eitherSep "w" "whitespaceSep"  = whitespaceSep
               | eitherSep "n" "noSep"     = id
               | otherwise                 = hyphenSep
                 where eitherSep = eitherEq sep
@@ -405,10 +422,11 @@ mkTouchPlus (Settings { ioOperation
           pathF = \s -> noNulls $ tokenSepSanCase <$> splitWith "/" s
           nameF = tokenSepSanCase
           extF  = tokenApply $ extChoice extensionFormat . sanitiseChoice sanitisation
-          creator x = putLineSurround $ sequence_ [output (Output { home = h
-                                                                  , path = p
-                                                                  , name = n
-                                                                  , extension = e
-                                                                  , ioOperation }) | (h,p,n,e) <- x]
+          creator x = putLineSurround $ sequence_
+              [output (Output { home      = h
+                              , path      = p
+                              , name      = n
+                              , extension = e
+                              , ioOperation }) | (h,p,n,e) <- x]
           tokenApply f = concat . f <$> tokens
           tokenSepSanCase = tokenApply $ sepChoice separator . sanitiseChoice sanitisation . caseChoice characterCase
