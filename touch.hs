@@ -17,6 +17,7 @@ import System.Directory ( createDirectory
 main = input
 
 -- TODO: use function for green s ++ "/"
+-- TODO: test all examples for if they work and are coloured properly
 -- TODO: publish on github and change readme url
 
 -- Types ----------
@@ -374,12 +375,16 @@ help = unlines $ indentAll
     , green "create/a/" ++ green "path/"
     , green "create/a/" ++ blue "path.txt"
     , green "this is / " ++ blue "automatic formatting . txt"
-    , green "ForMAtting / " ++ blue "@ % (consistency) ~ . & enforced STYLES"
+    , green "ForMAtting / @ % ("
+          ++ blue "consistency"
+          ++ ") ~ . & enforced STYLES"
     , green "error / / proof / " ++ blue "... ... "
     , intercalate "," [ blue "multiple.txt"
                       , green "folders/"
                       , blue "and.txt"
                       , green "files/" ]
+    , blue ".dotFile"
+    , green "dotted.path/a/" ++ blue "b.txt"
     , "f,w,u,s,u," ++ green "choice of options/"
     , "fileCreate,w,u,snakeCase,u,"
           ++ green "options can be written in full-form/"
@@ -402,7 +407,16 @@ help = unlines $ indentAll
              , "../"
              , blue "it.txt"
              , ","
-             , green "all/" ]
+             , green "all/"
+             , duplicate 3 "../"
+             , " @(# "
+             , green "together"
+             , "%$ .@    "
+             , concat [ ",s,camelCase,,,"
+                      , green "for"
+                      , ","
+                      , green "our/"
+                      , blue ".amusement" ] ]
     , lineSurround $ heading "output"
     , "The output of this command is color coded. e.g."
     , ""
@@ -419,10 +433,11 @@ help = unlines $ indentAll
              , green "i/"
              , red "j.txt"
              , skipMsg ]
-    , ""
-    , "The colour code is:"
-    , unlines [ green "green"
-              , blue "blue" ]
+    , lineSurround "The colour code is:"
+    , unlines [ green "green" ++ "for created directories"
+              , blue "blue" ++ "for created files"
+              , "white for non-creation events"
+              , red "red" ++ "for errors and skipped creations" ]
     , ""
     , "For more help, open the readme in your browser:"
     , green readmeUrl ]
