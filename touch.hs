@@ -11,8 +11,6 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, get
 
 main = input
 
--- TODO: make indent consistent across io
-
 -- Types ----------
 
 data Settings = Settings { ioOperation :: String
@@ -82,11 +80,8 @@ surround :: String -> String -> String -> String
 surround s1 s2 s = s1 ++ s ++ s2
 
 spaceSurround :: String -> String
-
 spaceSurround = surround " " " "
-
-duplicate :: Int -> String -> String
-duplicate n s = [1..n] >> s
+lineSurround = surround "\n" "\n"
 
 indentAll :: [String] -> [String]
 indentAll = map (indent ++)
@@ -310,12 +305,13 @@ input = getContents >>= run . args
                         , extensionFormat = ""
                         , sanitisation    = ""
                         , name }
-              noInput = putStrLn (red "No input")
+              noInput = putStrLn (lineSurround $ indent ++ red "No input")
 
 output :: Output -> IO ()
 output (Output {home, path, name, extension, ioOperation})
   | eitherEq ioOperation "e" "echo" = createChoice ioOperation nep
   | otherwise = do
+      putStr indent
       cd <- getCurrentDirectory
       goHome home
       mkDirPath path
@@ -334,7 +330,7 @@ nameVersion :: String
 nameVersion = green (unwords [appName, versionNum])
 
 version :: String
-version = surround "\n" "\n" nameVersion
+version = lineSurround $ indent ++ nameVersion
 
 help :: String
 help = unlines $ indentAll
@@ -345,9 +341,9 @@ help = unlines $ indentAll
     , ""
     , "Usage:"
     , ""
-    , concat [green appName, " ", usage]
+    , green "mkTouchPlus " ++ usage
     , ""
-    , indent ++ green "where:"
+    , indent ++ "where:"
     , define "ioOperation"     $ values ioOptions
     , define "separator"       $ values sepOptions
     , define "characterCase"   $ values caseOptions
@@ -358,7 +354,7 @@ help = unlines $ indentAll
     , "For more help, open the readme in your browser:"
     , ""
     , green readmeUrl ]
-      where define name explanation = concat [ duplicate 2 indent , take 24 (blue name ++ repeat ' ') , spaceSurround $ green ":" , explanation ]
+      where define name explanation = concat [ [1,2] >> indent , take 24 (blue name ++ repeat ' ') , spaceSurround $ green ":" , explanation ]
             settings = constrFields . toConstr $ Settings "" "" "" "" "" [""]
             usage = intercalate (green ",") $ (\ s -> surround "[" "]" (blue s)) <$> settings
             values x = intercalate (green $ spaceSurround "/") $ (\ (c:cs) -> blue [c] ++ cs) <$> x
