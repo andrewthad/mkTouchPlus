@@ -317,21 +317,26 @@ input = getContents >>= run . args
         where run x | all isBlank x = noInput
                     | x `anyEq` ["-v", "--v", "--version"] = putStrLn version
                     | x `anyEq` ["-h", "--h", "--help"]    = putStrLn help
-                    | (a:b:c:d:e:name) <- x = mkTouchPlus Settings
-                        { ioOperation     = a
-                        , separator       = b
-                        , characterCase   = c
-                        , extensionFormat = d
-                        , sanitisation    = e
-                        , name }
-                    | name <- x = mkTouchPlus Settings
-                        { ioOperation     = ""
-                        , separator       = ""
-                        , characterCase   = ""
-                        , extensionFormat = ""
-                        , sanitisation    = ""
-                        , name }
+                    | otherwise = runner `mapM_` x
               noInput = putStrLn (lineSurround $ red "No input")
+              runner s | (a:b:c:d:e:rest) = mkTouchPlus Settings
+                           { ioOperation     = a
+                           , separator       = b
+                           , characterCase   = c
+                           , extensionFormat = d
+                           , sanitisation    = e
+                           , name            = rest }
+                       | otherwise = mkTouchPlus Settings
+                           { ioOperation     = ""
+                           , separator       = ""
+                           , characterCase   = ""
+                           , extensionFormat = ""
+                           , sanitisation    = ""
+                           , name            = s }
+
+
+
+
 
 output :: Output -> IO ()
 output (Output {home, path, name, extension, ioOperation})
@@ -547,11 +552,7 @@ mkTouchPlus (Settings { ioOperation
                       , extensionFormat
                       , sanitisation
                       , name }) = composition
-    where composition = -- creator
-                        putStrLn $ show
-                                $   quadApply homeF pathF nameF extF
-                                <$> pathNameExt
-                                <$> name
+    where composition = putStrLn $ show $ {- quadApply homeF pathF nameF extF <$> -} {- pathNameExt <$> -} name
           homeF = dropWhile isSpace
           pathF = \s -> noNulls $ tokenSepSanCase <$> splitWith "/" s
           nameF = tokenSepSanCase
@@ -568,3 +569,8 @@ mkTouchPlus (Settings { ioOperation
                                        . san
                                        . caseChoice characterCase
           san = noNulls . sanitiseChoice sanitisation
+
+-- creator
+--         $   quadApply homeF pathF nameF extF
+--         <$> pathNameExt
+--         <$> name
