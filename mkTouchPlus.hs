@@ -16,6 +16,7 @@ import System.Directory ( createDirectory
 
 main = input
 
+-- TODO: option to not revert back to original directory at end of output
 -- TODO: test all examples for if they work and are coloured properly
 -- TODO: publish on github and change readme url
 
@@ -335,6 +336,12 @@ input = getContents >>= run . args
 output :: Output -> IO ()
 output (Output {home, path, name, extension, ioOperation})
   | eitherEq ioOperation "e" "echo" = ioChoice ioOperation nep
+  | isBlank name && notNull extension = output
+      (Output { home      = home
+              , path      = path
+              , name      = dotFile extension
+              , extension = ""
+              , ioOperation } )
   | otherwise = do
       putStr indent
       cd <- getCurrentDirectory
@@ -342,9 +349,10 @@ output (Output {home, path, name, extension, ioOperation})
       mkDirPath path
       ioChoice ioOperation ne
       setCurrentDirectory cd
-   where ne  = nameExtDot name extension
-         p   = intercalate "/" path ++ "/"
-         nep = p ++ ne
+   where dotFile = ("." ++)
+         ne      = nameExtDot name extension
+         p       = intercalate "/" path ++ "/"
+         nep     = p ++ ne
 
 goHome :: String -> IO ()
 goHome s = do
@@ -378,26 +386,26 @@ help = unlines $ indentAll
     , heading "examples" ----------
     , ""
     , blue "create file.txt"
-    , dirGreen "create folder"
+    , green "create folder"
     , dirGreen "create/a" ++ dirGreen "path"
     , dirGreen "create/a" ++ blue "path.txt"
     , dirGreen "this is  " ++ blue "automatic formatting . txt"
-    , dirGreen "ForMAtting / @ % ("
-          ++ blue "consistency"
-          ++ ") ~ . & enforced STYLES"
-    , dirGreen "error / / proof " ++ blue "... ... "
+    , concat [ "\""
+             , dirGreen "ForMAtting / @ % ("
+             , blue "consistency enforced ) ~ . & STYLES"
+             , "\""]
     , intercalate "," [ blue "multiple.txt"
-                      , dirGreen "folders"
-                      , blue "and.txt"
-                      , dirGreen "files" ]
+                      , green "folders"
+                      , green "and"
+                      , blue "files.txt" ]
     , blue ".dotFile"
     , dirGreen "dotted.path/a" ++ blue "b.txt"
-    , "f,w,u,s,u," ++ dirGreen "choice of options"
+    , "f,w,u,s,u," ++ green "choice of options"
     , "fileCreate,w,u,snakeCase,u,"
-          ++ dirGreen "options can be written in full-form"
-    , ",,,,," ++ dirGreen "default options"
-    , dirGreen "also default options"
-    , ",s,,,," ++ dirGreen "snake case with other options as default"
+          ++ green "options can be written in full-form"
+    , ",,,,," ++ green "default options"
+    , green "also default options"
+    , ",s,,,," ++ green "snake case with other options as default"
     , ",s,,,w," ++ intercalate "," [ dirGreen "options plus"
                                    , dirGreen "multiple"
                                    , blue "files.txt"
@@ -408,7 +416,7 @@ help = unlines $ indentAll
              , dirGreen "the"
              , duplicate 2 "../"
              , dirGreen "file system" ]
-    , "/" ++ dirGreen "start at home directory"
+    , "/" ++ green "start at home directory"
     , concat [ "/"
              , dirGreen "combining"
              , "../"
@@ -417,8 +425,7 @@ help = unlines $ indentAll
              , dirGreen "all"
              , duplicate 3 "../"
              , " @(# "
-             , dirGreen "together"
-             , "%$ .@    "
+             , dirGreen " @(# together%$ .@    "
              , concat [ ",s,camelCase,,,"
                       , dirGreen "for"
                       , ","
@@ -445,8 +452,7 @@ help = unlines $ indentAll
     , colorCode green "green" "for created directories"
     , colorCode (colored 22) "white" "for non-creation events"
     , colorCode red "red" "for errors and skipped creations"
-    , ""
-    , "For more help, open the readme in your browser:"
+    , lineSurround "For more help, open the readme in your browser:"
     , green readmeUrl ]
         where definition name explanation = concat $
                   [ duplicate 2 indent
@@ -520,8 +526,7 @@ sanitiseChoices = [ ("unix", unix)
 ioChoices = [ ("fileCreate", fileCreate)
             , ("dirCreate", dirCreate)
             , ("smartCreate", smartCreate)
-            , ("putStrLn", putStrLn)
-            , ("smartCreate", smartCreate) ]
+            , ("putStrLn", putStrLn) ]
 
 sepChoice, caseChoice, extChoice, sanitiseChoice
          :: String -> [String] -> [String]
@@ -542,7 +547,9 @@ mkTouchPlus (Settings { ioOperation
                       , extensionFormat
                       , sanitisation
                       , name }) = composition
-    where composition = creator $   quadApply homeF pathF nameF extF
+    where composition = -- creator
+                        putStrLn $ show
+                                $   quadApply homeF pathF nameF extF
                                 <$> pathNameExt
                                 <$> name
           homeF = dropWhile isSpace
@@ -551,11 +558,11 @@ mkTouchPlus (Settings { ioOperation
           extF  = tokenApply $ extChoice extensionFormat
                              . san
           creator x = putLineSurround $ sequence_
-              [ output (Output { home     = h
-                              , path      = p
-                              , name      = n
-                              , extension = e
-                              , ioOperation }) | (h,p,n,e) <- x ]
+              [ output (Output { home      = h
+                               , path      = p
+                               , name      = n
+                               , extension = e
+                               , ioOperation }) | (h,p,n,e) <- x ]
           tokenApply f    = concat . f <$> tokens
           tokenSepSanCase = tokenApply $ sepChoice separator
                                        . san
