@@ -319,23 +319,45 @@ input = getContents >>= run . args
                     | x `anyEq` ["-h", "--h", "--help"]    = putStrLn help
                     | otherwise = runner `mapM_` x
               noInput = putStrLn (lineSurround $ red "No input")
-              runner s | (a:b:c:d:e:rest) = mkTouchPlus Settings
-                           { ioOperation     = a
-                           , separator       = b
-                           , characterCase   = c
-                           , extensionFormat = d
-                           , sanitisation    = e
-                           , name            = rest }
-                       | otherwise = mkTouchPlus Settings
+              runner :: String -> IO ()
+              runner s = mkTouchPlus Settings
                            { ioOperation     = ""
                            , separator       = ""
                            , characterCase   = ""
                            , extensionFormat = ""
                            , sanitisation    = ""
-                           , name            = s }
+                           , name            = [s] }
+              -- runner s | (a:b:c:d:e:rest) = mkTouchPlus Settings
+              --              { ioOperation     = a
+              --              , separator       = b
+              --              , characterCase   = c
+              --              , extensionFormat = d
+              --              , sanitisation    = e
+              --              , name            = rest }
+              --          | otherwise = mkTouchPlus Settings
+              --              { ioOperation     = ""
+              --              , separator       = ""
+              --              , characterCase   = ""
+              --              , extensionFormat = ""
+              --              , sanitisation    = ""
+              --              , name            = s }
 
 
 
+                    -- | (a:b:c:d:e:name) <- x = mkTouchPlus Settings
+                    --     { ioOperation     = a
+                    --     , separator       = b
+                    --     , characterCase   = c
+                    --     , extensionFormat = d
+                    --     , sanitisation    = e
+                    --     , name }
+                    -- | name <- x = mkTouchPlus Settings
+                    --     { ioOperation     = ""
+                    --     , separator       = ""
+                    --     , characterCase   = ""
+                    --     , extensionFormat = ""
+                    --     , sanitisation    = ""
+                    --     , name }
 
 
 output :: Output -> IO ()
