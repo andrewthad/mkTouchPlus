@@ -16,8 +16,6 @@ import System.Directory ( createDirectory
 
 main = input
 
--- TODO: option to not revert back to original directory at end of output
--- TODO: test all examples for if they work and are coloured properly
 -- TODO: publish on github and change readme url
 
 -- Types ----------
@@ -491,7 +489,6 @@ help = unlines $ indentAll
                   , replicate col ' '++ indent ++ "outputted. Continues the\
                       \ comma-separated list of arguments."]
               colorCode f s d = take 17 (f s ++ ":" ++ repeat ' ') ++ d
-              -- TODO: take an amount dependent on whether f is used or else if it is just id
 
 -- Composition ----------
 
@@ -549,10 +546,9 @@ mkTouchPlus (Settings { ioOperation
                       , extensionFormat
                       , sanitisation
                       , name }) = composition
-    where composition = creator
-                          $   quadApply homeF pathF nameF extF
-                          <$> pathNameExt
-                          <$> name
+    where composition = creator $   quadApply homeF pathF nameF extF
+                                <$> pathNameExt
+                                <$> name
           homeF = dropWhile isSpace
           pathF = \s -> noNulls $ tokenSepSanCase <$> splitWith "/" s
           nameF = tokenSepSanCase
@@ -569,6 +565,3 @@ mkTouchPlus (Settings { ioOperation
                                        . san
                                        . caseChoice characterCase
           san = noNulls . sanitiseChoice sanitisation
-
-
--- composition = putStrLn $ show $ quadApply homeF pathF nameF extF <$> pathNameExt <$> name
