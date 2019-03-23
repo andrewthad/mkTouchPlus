@@ -6,7 +6,9 @@ import Data.List (groupBy, intercalate, intersperse, span)
 import System.IO (writeFile)
 import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, getCurrentDirectory, setCurrentDirectory, getHomeDirectory)
 
-main = input "" "" "" "" ""
+import System.Environment
+
+main = input
 
 b = maker "" "h" "" "" ""
 o = maker "" "" "" "" ""
@@ -15,10 +17,10 @@ s = maker "smart" "h" "c" "l" ""
 
 -- Constants ----------
 
-name, version, readme, indent :: String
+name, versionNum, readme, indent :: String
 
 name = "Nice Touch"
-version = "v" ++ show 1.0
+versionNum = "v" ++ show 1.0
 readme = "https://www.com"
 
 indent = replicate 2 ' '
@@ -35,9 +37,9 @@ splitWith :: String -> String -> [String]
 splitWith l s = let (start, end) = break (`elem` l) s
                 in  start : if null end then [] else splitWith l (tail end)
 
-multi, tokens :: String -> [String]
+args, tokens :: String -> [String]
 
-multi = splitWith ",\n\t"
+args = splitWith ",\n\t"
 
 tokens s = if s' == "" then [] else word : tokens rest
   where s' = dropWhile isSep s
@@ -56,9 +58,6 @@ shrinkTo n s = if length s > n
 
 shrink :: String -> String
 shrink = shrinkTo 21
-
-twoNL :: String
-twoNL = "\n\n"
 
 isBlank :: String -> Bool
 isBlank = all isSpace
@@ -106,6 +105,7 @@ spaceSep = interSep " "
 extSep = (\x -> [x]) . concat
 
 interSep :: String -> [String] -> [String]
+interSep sep [""]         = [""]
 interSep sep [x]          = [x]
 interSep sep (x:xs@(y:z)) = if [last x, head y] `anyEq` "./"
                                then x : interSep sep xs
@@ -256,11 +256,32 @@ parentStep = do
         ifExists = setCurrentDirectory parent >> putStr "../"
     existCheck doesDirectoryExist ifExists (return ()) parent
 
-input :: String -> String -> String -> String -> String -> IO ()
-input op sep char ext san = do
-    putStrLn (blue "Enter a path:")
-    s <- getLine
-    maker op sep char ext san s
+-- input = return ()
+
+input = do
+    content <- getContents
+    run (args content)
+    where run [""] = noInput
+          run (a:b:c:d:e:name) = maker a b c "e" e name
+          run name = if all isBlank name
+                        then noInput
+                        else maker "" "" "" "e" "" name
+          noInput = putStrLn (red "No input")
+          -- | eitherEq name "-v" "--version" = putStrLn version
+          -- | eitherEq name "-h" "--help" = putStrLn help
+
+-- input :: IO ()
+-- input = getContents >>= run
+--     -- where l "" = [""]
+--     --       l [name] = [name]
+--     --       l (a:b:c:name) = [a,b,c,name]
+--     --       run s = putStrLn . show $ l s
+--         --   run s | isBlank s = putStrLn (red "No input")
+--         --         | length
+--         --         | otherwise = 
+--         where run "" = return ()
+--               run [name] = maker "" "" "" "" "" name
+--               run (a:b:c:d:e:name) = maker a b c "e" e (unwords name)
 
 output :: String -> [String] -> String -> String -> String -> IO ()
 output h p n e op | eitherEq op "e" "echo" = createChoice op nepS
@@ -279,14 +300,20 @@ goHome s = do
     home <- getHomeDirectory
     if s == "/" then setCurrentDirectory home else return ()
 
+nameVersion :: String
+nameVersion = green (name ++ " " ++ versionNum)
+
+version :: String
+version = unlines ["", nameVersion]
+
 help :: String
-help = concat [ "\n"
-              , green (name ++ " " ++ version)
-              , twoNL
-              , "For help, open the readme in your browser:"
-              , twoNL
-              , blue readme
-              , "\n" ]
+help = unlines [ ""
+               , green (name ++ " " ++ versionNum)
+               , "Create file/s and/or directory path/s with names that are formatted automatically."
+               , "Usage: touch [] [] [] [] [] []"
+               , ""
+               , "For more help, open the readme in your browser:"
+               , blue readme ]
 
 -- Composition ----------
 
@@ -330,10 +357,8 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
-maker :: String -> String -> String -> String -> String -> String -> IO ()
-maker op sep char ext san name | eitherEq name "-h" "--help" = putStrLn help
-                               | isBlank name = input op sep char ext san
-                               | otherwise = creator $ quadApply homeF pathF nameF extF <$> pathNameExt <$> multi name
+maker :: String -> String -> String -> String -> String -> [String] -> IO ()
+maker op sep char ext san name = creator $ quadApply homeF pathF nameF extF <$> pathNameExt name
     where homeF = dropWhile isSpace
           pathF = \s -> noNulls $ tokenSepSanCase <$> splitWith "/" s
           nameF = tokenSepSanCase
