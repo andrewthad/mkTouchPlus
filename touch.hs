@@ -1,8 +1,9 @@
-{-# LANGUAGE NamedFieldPuns, DuplicateRecordFields #-}
+{-# LANGUAGE NamedFieldPuns, DuplicateRecordFields, DeriveDataTypeable #-}
 
 import Control.Applicative (liftA2)
 import Control.Arrow ((&&&), second)
 import Data.Char (isSpace, toLower, toUpper)
+import Data.Data (constrFields, Data, toConstr, Typeable)
 import Data.Function ((&), on)
 import Data.List (groupBy, intercalate, intersperse, span)
 import System.IO (writeFile)
@@ -10,7 +11,7 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, get
 
 main = input
 
--- TODO: finish help text constant
+-- TODO: make -h -v work again
 
 -- Types ----------
 
@@ -20,7 +21,7 @@ data Settings = Settings { ioOperation :: String
                          , extensionFormat :: String
                          , sanitisation :: String
                          , name :: [String]
-                         } deriving (Show)
+                         } deriving (Data, Show, Typeable)
 
 data Output = Output { home :: String
                      , path :: [String]
@@ -33,7 +34,7 @@ data Output = Output { home :: String
 
 appName, versionNum, readmeUrl, indent :: String
 
-appName = "Nice Touch"
+appName = "mkTouch+"
 versionNum = "v" ++ show 1.0
 readmeUrl = "https://www.com"
 
@@ -71,10 +72,19 @@ shrinkTo n s = if length s > n
                  else s
 
 shrink :: String -> String
+
 shrink = shrinkTo 21
 
 isBlank :: String -> Bool
 isBlank = all isSpace
+
+surround :: String -> String -> String -> String
+surround s1 s2 s = s1 ++ s ++ s2
+
+surroundSpace, surroundBracket :: String -> String
+
+surroundSpace = surround " " " "
+surroundBracket = surround "[" "]"
 
 -- Tokenisation ----------
 
@@ -327,8 +337,8 @@ help = unlines
     , nameVersion
     , ""
     , "Create one or more files and directory paths, with automatic name formatting."
-    -- TODO: make these into automatic list map from record
-    , "Usage: touch [ioOperation],[separator],[characterCase],[extensionFormat],[sanitisation],[name]"
+    , ""
+    , "Usage:" ++ surroundSpace (green appName) ++ usage
     , ""
     , indent ++ green "where:"
     , define "ioOperation"     "lorem"
@@ -339,8 +349,11 @@ help = unlines
     , define "name"            "lorem"
     , ""
     , "For more help, open the readme in your browser:"
-    , blue readmeUrl ]
-      where define name explanation = concat [ [1,2] >> indent , take 24 (blue name ++ repeat ' ') , green " : " , explanation ]
+    , ""
+    , green readmeUrl ]
+      where define name explanation = concat [ [1,2] >> indent , take 24 (blue name ++ repeat ' ') , surroundSpace $ green ":" , explanation ]
+            settings = constrFields . toConstr $ Settings "" "" "" "" "" [""]
+            usage = intercalate (green ",") $ (\ s -> surroundBracket (blue s)) <$> settings
 
 -- Composition ----------
 
