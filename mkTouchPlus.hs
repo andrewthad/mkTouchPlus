@@ -59,9 +59,10 @@ splitWith :: String -> String -> [String]
 splitWith l s = let (start, end) = break (`elem` l) s
                 in  start : if null end then [] else splitWith l (tail end)
 
-args, tokens :: String -> [String]
+args, names, tokens :: String -> [String]
 
-args = splitWith ",\n\t"
+args = splitWith ";"
+names = splitWith ",\n\t"
 
 tokens s = if s' == "" then [] else word : tokens rest
   where s'           = dropWhile isSep s
@@ -317,21 +318,22 @@ input = getContents >>= run . args
         where run x | all isBlank x = noInput
                     | x `anyEq` ["-v", "--v", "--version"] = putStrLn version
                     | x `anyEq` ["-h", "--h", "--help"]    = putStrLn help
-                    | (a:b:c:d:e:name) <- x = mkTouchPlus Settings
+                    | (a:b:c:d:e:rest) <- x = mkTouchPlus Settings
                         { ioOperation     = a
                         , separator       = b
                         , characterCase   = c
                         , extensionFormat = d
                         , sanitisation    = e
-                        , name }
-                    | name <- x = mkTouchPlus Settings
+                        , name            = splitNames rest }
+                    | otherwise = mkTouchPlus Settings
                         { ioOperation     = ""
                         , separator       = ""
                         , characterCase   = ""
                         , extensionFormat = ""
                         , sanitisation    = ""
-                        , name }
+                        , name            = splitNames x }
               noInput = putStrLn (lineSurround $ red "No input")
+              splitNames = (>>= names)
 
 output :: Output -> IO ()
 output (Output {home, path, name, extension, ioOperation})
@@ -547,7 +549,10 @@ mkTouchPlus (Settings { ioOperation
                       , extensionFormat
                       , sanitisation
                       , name }) = composition
-    where composition = putStrLn $ show $ quadApply homeF pathF nameF extF <$> pathNameExt <$> name
+    where composition = creator
+                          $   quadApply homeF pathF nameF extF
+                          <$> pathNameExt
+                          <$> name
           homeF = dropWhile isSpace
           pathF = \s -> noNulls $ tokenSepSanCase <$> splitWith "/" s
           nameF = tokenSepSanCase
@@ -565,7 +570,5 @@ mkTouchPlus (Settings { ioOperation
                                        . caseChoice characterCase
           san = noNulls . sanitiseChoice sanitisation
 
--- creator
---         $   quadApply homeF pathF nameF extF
---         <$> pathNameExt
---         <$> name
+
+-- composition = putStrLn $ show $ quadApply homeF pathF nameF extF <$> pathNameExt <$> name
