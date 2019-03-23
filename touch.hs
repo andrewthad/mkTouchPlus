@@ -11,8 +11,6 @@ import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, get
 
 main = input
 
--- TODO: make -h -v work again
-
 -- Types ----------
 
 data Settings = Settings { ioOperation :: String
@@ -81,10 +79,8 @@ isBlank = all isSpace
 surround :: String -> String -> String -> String
 surround s1 s2 s = s1 ++ s ++ s2
 
-surroundSpace, surroundBracket :: String -> String
-
+surroundSpace :: String -> String
 surroundSpace = surround " " " "
-surroundBracket = surround "[" "]"
 
 -- Tokenisation ----------
 
@@ -289,8 +285,8 @@ parentStep = do
 input :: IO ()
 input = getContents >>= run . args
         where run x | all isBlank x = noInput
-                    | eitherEq x ["-v"] ["--version"] = putStrLn version
-                    | eitherEq x ["-h"] ["--help"] = putStrLn help
+                    | x `anyEq` ["-v", "--v", "--version"] = putStrLn version
+                    | x `anyEq` ["-h", "--h", "--help"] = putStrLn help
                     | (a:b:c:d:e:name) <- x = mkTouchPlus Settings
                         { ioOperation     = a
                         , separator       = b
@@ -329,7 +325,7 @@ nameVersion :: String
 nameVersion = green (unwords [appName, versionNum])
 
 version :: String
-version = "\n" ++ nameVersion
+version = surround "\n" "\n" nameVersion
 
 help :: String
 help = unlines
@@ -353,7 +349,7 @@ help = unlines
     , green readmeUrl ]
       where define name explanation = concat [ [1,2] >> indent , take 24 (blue name ++ repeat ' ') , surroundSpace $ green ":" , explanation ]
             settings = constrFields . toConstr $ Settings "" "" "" "" "" [""]
-            usage = intercalate (green ",") $ (\ s -> surroundBracket (blue s)) <$> settings
+            usage = intercalate (green ",") $ (\ s -> surround "[" "]" (blue s)) <$> settings
 
 -- Composition ----------
 
