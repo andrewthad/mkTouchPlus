@@ -16,7 +16,6 @@ import System.Directory ( createDirectory
 
 main = input
 
--- TODO: use function for green s ++ "/"
 -- TODO: test all examples for if they work and are coloured properly
 -- TODO: publish on github and change readme url
 
@@ -248,10 +247,18 @@ skipMsg :: String
 
 skipMsg = errorMsg "Not touched."
 
+dirPrint :: (String -> String) -> String -> String
+dirPrint color = color . (++ "/")
+
+dirGreen, dirRed :: String -> String
+
+dirGreen = dirPrint green
+dirRed = dirPrint red
+
 fileMsg, dirMsg :: (String -> String) -> String -> String
 
 fileMsg color = color . shrink
-dirMsg color  = fileMsg color . (++ "/")
+dirMsg color  = fileMsg (dirPrint color)
 
 fileSuccess, dirSuccess, dirFailure :: String -> String
 
@@ -354,7 +361,7 @@ help :: String
 help = unlines $ indentAll
     [ lineSurround nameVersion
     , description
-    , lineSurround $ heading "usage"
+    , lineSurround $ heading "usage" ----------
     , command usage
     , orUsage
     , command $ tag "name"
@@ -368,76 +375,76 @@ help = unlines $ indentAll
     , define "extensionFormat" extOptions
     , define "sanitisation"    sanOptions
     , definition "name"        nameDefinition
-    , heading "examples"
+    , heading "examples" ----------
     , ""
     , blue "create file.txt"
-    , green "create folder/"
-    , green "create/a/" ++ green "path/"
-    , green "create/a/" ++ blue "path.txt"
-    , green "this is / " ++ blue "automatic formatting . txt"
-    , green "ForMAtting / @ % ("
+    , dirGreen "create folder"
+    , dirGreen "create/a" ++ dirGreen "path"
+    , dirGreen "create/a" ++ blue "path.txt"
+    , dirGreen "this is  " ++ blue "automatic formatting . txt"
+    , dirGreen "ForMAtting / @ % ("
           ++ blue "consistency"
           ++ ") ~ . & enforced STYLES"
-    , green "error / / proof / " ++ blue "... ... "
+    , dirGreen "error / / proof " ++ blue "... ... "
     , intercalate "," [ blue "multiple.txt"
-                      , green "folders/"
+                      , dirGreen "folders"
                       , blue "and.txt"
-                      , green "files/" ]
+                      , dirGreen "files" ]
     , blue ".dotFile"
-    , green "dotted.path/a/" ++ blue "b.txt"
-    , "f,w,u,s,u," ++ green "choice of options/"
+    , dirGreen "dotted.path/a" ++ blue "b.txt"
+    , "f,w,u,s,u," ++ dirGreen "choice of options"
     , "fileCreate,w,u,snakeCase,u,"
-          ++ green "options can be written in full-form/"
-    , ",,,,," ++ green "default options/"
-    , green "also default options/"
-    , ",s,,,," ++ green "snake case with other options as default/"
-    , ",s,,,w," ++ intercalate "," [ green "options plus/"
-                                   , green "multiple/"
+          ++ dirGreen "options can be written in full-form"
+    , ",,,,," ++ dirGreen "default options"
+    , dirGreen "also default options"
+    , ",s,,,," ++ dirGreen "snake case with other options as default"
+    , ",s,,,w," ++ intercalate "," [ dirGreen "options plus"
+                                   , dirGreen "multiple"
                                    , blue "files.txt"
-                                   , green "or folders/" ]
-    , "../" ++ green "parent directory/" ++ blue "file.txt"
-    , concat [ green "walking/"
+                                   , dirGreen "or folders" ]
+    , "../" ++ dirGreen "parent directory" ++ blue "file.txt"
+    , concat [ dirGreen "walking"
              , "../"
-             , green "the/"
+             , dirGreen "the"
              , duplicate 2 "../"
-             , green "file system/" ]
-    , "/" ++ green "start at home directory/"
+             , dirGreen "file system" ]
+    , "/" ++ dirGreen "start at home directory"
     , concat [ "/"
-             , green "combining/"
+             , dirGreen "combining"
              , "../"
              , blue "it.txt"
              , ","
-             , green "all/"
+             , dirGreen "all"
              , duplicate 3 "../"
              , " @(# "
-             , green "together"
+             , dirGreen "together"
              , "%$ .@    "
              , concat [ ",s,camelCase,,,"
-                      , green "for"
+                      , dirGreen "for"
                       , ","
-                      , green "our/"
+                      , dirGreen "our"
                       , blue ".amusement" ] ]
-    , lineSurround $ heading "output"
+    , lineSurround $ heading "output" ----------
     , "The output of this command is color coded. e.g."
     , ""
-    , concat [ red "a/"
-             , red "b/"
-             , green "c/"
-             , green "d/"
+    , concat [ dirRed "a"
+             , dirRed "b"
+             , dirGreen "c"
+             , dirGreen "d"
              , "../"
-             , red "e/"
+             , dirRed "e"
              , blue "f.txt"
              , "\n" ++ indent
              , "/"
-             , green "h/"
-             , green "i/"
-             , red "j.txt"
+             , dirGreen "h"
+             , dirGreen "i"
+             , dirRed "j.txt"
              , skipMsg ]
-    , lineSurround "The colour code is:"
-    , unlines [ green "green" ++ "for created directories"
-              , blue "blue" ++ "for created files"
-              , "white for non-creation events"
-              , red "red" ++ "for errors and skipped creations" ]
+    , lineSurround "The color code is:"
+    , colorCode blue "blue" "for created files"
+    , colorCode green "green" "for created directories"
+    , colorCode (colored 22) "white" "for non-creation events"
+    , colorCode red "red" "for errors and skipped creations"
     , ""
     , "For more help, open the readme in your browser:"
     , green readmeUrl ]
@@ -447,34 +454,36 @@ help = unlines $ indentAll
                   , spaceSurround $ green ":"
                   , explanation ]
               define name explanation     = definition name (values explanation)
-              description    = "Create one or more files and directory paths,\
+              description     = "Create one or more files and directory paths,\
                 \ with automatic name formatting."
-              heading s      = map toUpper s ++ ":"
-              command        = (green "mkTouchPlus " ++)
-              orUsage        = indent ++ "or"
-              col            = 24
-              hlHead ""      = ""
-              hlHead (c:cs)  = blue [c] ++ cs
-              hlFlag (c:cs)  = blue "-" ++ green ("-" ++ [c]) ++ blue cs
-              tag            = surround "[" "]" . blue
-              commas         = intercalate (green ",")
-              slashes        = intercalate (green $ spaceSurround "/")
-              settings       = constrFields . toConstr
+              heading s       = map toUpper s ++ ":"
+              command         = (green "mkTouchPlus " ++)
+              orUsage         = indent ++ "or"
+              col             = 24
+              hlHead ""       = ""
+              hlHead (c:cs)   = blue [c] ++ cs
+              hlFlag (c:cs)   = blue "-" ++ green ("-" ++ [c]) ++ blue cs
+              tag             = surround "[" "]" . blue
+              commas          = intercalate (green ",")
+              slashes         = intercalate (green $ spaceSurround "/")
+              settings        = constrFields . toConstr
                                               $ Settings "" "" "" "" "" [""]
-              usage          = commas $ tag <$> settings
-              flags          = tag (slashes $ hlFlag <$> flagsList)
-              values x       = slashes $ hlHead <$> x
-              flagsList      = [ "help", "version"]
-              optionsList    = map fst
-              ioOptions      = optionsList ioChoices
-              sepOptions     = optionsList sepChoices
-              caseOptions    = optionsList caseChoices
-              extOptions     = optionsList extChoices ++ sepOptions
-              sanOptions     = optionsList sanitiseChoices
-              nameDefinition = unlines
+              usage           = commas $ tag <$> settings
+              flags           = tag (slashes $ hlFlag <$> flagsList)
+              values x        = slashes $ hlHead <$> x
+              flagsList       = [ "help", "version"]
+              optionsList     = map fst
+              ioOptions       = optionsList ioChoices
+              sepOptions      = optionsList sepChoices
+              caseOptions     = optionsList caseChoices
+              extOptions      = optionsList extChoices ++ sepOptions
+              sanOptions      = optionsList sanitiseChoices
+              nameDefinition  = unlines
                   ["One or more names for files or directories that will be"
                   , replicate col ' '++ indent ++ "outputted. Continues the\
                       \ comma-separated list of arguments."]
+              colorCode f s d = take 17 (f s ++ ":" ++ repeat ' ') ++ d
+              -- TODO: take an amount dependent on whether f is used or else if it is just id
 
 -- Composition ----------
 

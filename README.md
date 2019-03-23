@@ -2,7 +2,13 @@
 
 Combines mkDir (-p) and touch, automatically formats word separators and case and can make multiple files and folder at once. A huge time-saver that I made so I could use it everyday, especially to auto-hyphenate my filepaths.
 
+## Requirements
+
+* GHC 10 or greater
+* (Only tested on Linux)
+
 ## Installation
+
 
 
 ## Usage
