@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns, DuplicateRecordFields #-}
+
 import Control.Applicative (liftA2)
 import Control.Arrow ((&&&), second)
 import Data.Char (isSpace, toLower, toUpper)
@@ -6,22 +8,34 @@ import Data.List (groupBy, intercalate, intersperse, span)
 import System.IO (writeFile)
 import System.Directory (createDirectory, doesDirectoryExist, doesFileExist, getCurrentDirectory, setCurrentDirectory, getHomeDirectory)
 
-import System.Environment
-
 main = input
 
-b = maker "" "h" "" "" ""
-o = maker "" "" "" "" ""
-e = maker "echo" "h" "u" "" ""
-s = maker "smart" "h" "c" "l" ""
+-- TODO: finish help text constant
+
+-- Types ----------
+
+data Settings = Settings { ioOperation :: String
+                         , separator :: String
+                         , characterCase :: String
+                         , extensionFormat :: String
+                         , sanitisation :: String
+                         , name :: [String]
+                         } deriving (Show)
+
+data Output = Output { home :: String
+                     , path :: [String]
+                     , name :: String
+                     , extension :: String
+                     , ioOperation :: String
+                     } deriving (Show)
 
 -- Constants ----------
 
-name, versionNum, readme, indent :: String
+appName, versionNum, readmeUrl, indent :: String
 
-name = "Nice Touch"
+appName = "Nice Touch"
 versionNum = "v" ++ show 1.0
-readme = "https://www.com"
+readmeUrl = "https://www.com"
 
 indent = replicate 2 ' '
 
@@ -85,7 +99,12 @@ pathNameExt :: String -> (String, String, String, String)
 pathNameExt s = (\ x -> nameExt `second` pathFile x) `second` homePath s
                 & \ (a,(b,(c,d))) -> (a,b,c,d)
 
-quadApply :: (t1 -> a) -> (t2 -> b) -> (t3 -> c) -> (t4 -> d) -> (t1, t2, t3, t4) -> (a, b, c, d)
+quadApply :: (t1 -> a)
+     -> (t2 -> b)
+     -> (t3 -> c)
+     -> (t4 -> d)
+     -> (t1, t2, t3, t4)
+     -> (a, b, c, d)
 quadApply fa fb fc fd (a, b, c, d) = (fa a, fb b, fc c, fd d)
 
 nameExtDot :: String -> String -> String
@@ -105,6 +124,7 @@ spaceSep = interSep " "
 extSep = (\x -> [x]) . concat
 
 interSep :: String -> [String] -> [String]
+interSep sep []           = [""]
 interSep sep [""]         = [""]
 interSep sep [x]          = [x]
 interSep sep (x:xs@(y:z)) = if [last x, head y] `anyEq` "./"
@@ -256,44 +276,39 @@ parentStep = do
         ifExists = setCurrentDirectory parent >> putStr "../"
     existCheck doesDirectoryExist ifExists (return ()) parent
 
--- input = return ()
+input :: IO ()
+input = getContents >>= run . args
+        where run x | all isBlank x = noInput
+                    | eitherEq x ["-v"] ["--version"] = putStrLn version
+                    | eitherEq x ["-h"] ["--help"] = putStrLn help
+                    | (a:b:c:d:e:name) <- x = mkTouchPlus Settings
+                        { ioOperation     = a
+                        , separator       = b
+                        , characterCase   = c
+                        , extensionFormat = d
+                        , sanitisation    = e
+                        , name }
+                    | name <- x = mkTouchPlus Settings
+                        { ioOperation     = ""
+                        , separator       = ""
+                        , characterCase   = ""
+                        , extensionFormat = ""
+                        , sanitisation    = ""
+                        , name }
+              noInput = putStrLn (red "No input")
 
-input = do
-    content <- getContents
-    run (args content)
-    where run [""] = noInput
-          run (a:b:c:d:e:name) = maker a b c "e" e name
-          run name = if all isBlank name
-                        then noInput
-                        else maker "" "" "" "e" "" name
-          noInput = putStrLn (red "No input")
-          -- | eitherEq name "-v" "--version" = putStrLn version
-          -- | eitherEq name "-h" "--help" = putStrLn help
-
--- input :: IO ()
--- input = getContents >>= run
---     -- where l "" = [""]
---     --       l [name] = [name]
---     --       l (a:b:c:name) = [a,b,c,name]
---     --       run s = putStrLn . show $ l s
---         --   run s | isBlank s = putStrLn (red "No input")
---         --         | length
---         --         | otherwise = 
---         where run "" = return ()
---               run [name] = maker "" "" "" "" "" name
---               run (a:b:c:d:e:name) = maker a b c "e" e (unwords name)
-
-output :: String -> [String] -> String -> String -> String -> IO ()
-output h p n e op | eitherEq op "e" "echo" = createChoice op nepS
-                  | otherwise = do
-                      cd <- getCurrentDirectory
-                      goHome h
-                      mkDirPath p
-                      createChoice op neS
-                      setCurrentDirectory cd
-                   where neS = nameExtDot n e
-                         pS  = intercalate "/" p ++ "/"
-                         nepS = pS ++ neS
+output :: Output -> IO ()
+output (Output {home, path, name, extension, ioOperation})
+  | eitherEq ioOperation "e" "echo" = createChoice ioOperation nep
+  | otherwise = do
+      cd <- getCurrentDirectory
+      goHome home
+      mkDirPath path
+      createChoice ioOperation ne
+      setCurrentDirectory cd
+   where ne = nameExtDot name extension
+         p  = intercalate "/" path ++ "/"
+         nep = p ++ ne
 
 goHome :: String -> IO ()
 goHome s = do
@@ -301,39 +316,51 @@ goHome s = do
     if s == "/" then setCurrentDirectory home else return ()
 
 nameVersion :: String
-nameVersion = green (name ++ " " ++ versionNum)
+nameVersion = green (unwords [appName, versionNum])
 
 version :: String
-version = unlines ["", nameVersion]
+version = "\n" ++ nameVersion
 
 help :: String
-help = unlines [ ""
-               , green (name ++ " " ++ versionNum)
-               , "Create file/s and/or directory path/s with names that are formatted automatically."
-               , "Usage: touch [] [] [] [] [] []"
-               , ""
-               , "For more help, open the readme in your browser:"
-               , blue readme ]
+help = unlines
+    [ ""
+    , nameVersion
+    , ""
+    , "Create one or more files and directory paths, with automatic name formatting."
+    -- TODO: make these into automatic list map from record
+    , "Usage: touch [ioOperation],[separator],[characterCase],[extensionFormat],[sanitisation],[name]"
+    , ""
+    , indent ++ green "where:"
+    , define "ioOperation"     "lorem"
+    , define "separator"       "lorem"
+    , define "characterCase"   "lorem"
+    , define "extensionFormat" "lorem"
+    , define "sanitisation"    "lorem"
+    , define "name"            "lorem"
+    , ""
+    , "For more help, open the readme in your browser:"
+    , blue readmeUrl ]
+      where define name explanation = concat [ [1,2] >> indent , take 24 (blue name ++ repeat ' ') , green " : " , explanation ]
 
 -- Composition ----------
 
 sepChoice, caseChoice, extChoice, sanitiseChoice :: String -> ([String] -> [String])
 
 sepChoice sep | eitherSep "h" "hyphenSep" = hyphenSep
-                  | eitherSep "s" "snakeSep"  = snakeSep
-                  | eitherSep "d" "dotSep"    = dotSep
-                  | eitherSep "S" "spaceSep"  = spaceSep
-                  | eitherSep "n" "noSep"     = id
-                  | otherwise                 = id
-                    where eitherSep = eitherEq sep
+              | eitherSep "s" "snakeSep"  = snakeSep
+              | eitherSep "d" "dotSep"    = dotSep
+              | eitherSep "S" "spaceSep"  = spaceSep
+              | eitherSep "n" "noSep"     = id
+              | otherwise                 = hyphenSep
+                where eitherSep = eitherEq sep
 
-caseChoice charCase | eitherCase "l" "lowerCase" = lowerCase
-                    | eitherCase "u" "upperCase" = upperCase
-                    | eitherCase "t" "titleCase" = titleCase
-                    | eitherCase "c" "camelCase" = camelCase
-                    | eitherCase "n" "noCase"    = id
-                    | otherwise                  = id
-                      where eitherCase = eitherEq charCase
+caseChoice characterCase | eitherCase "l" "lowerCase" = lowerCase
+                         | eitherCase "u" "upperCase" = upperCase
+                         | eitherCase "t" "titleCase" = titleCase
+                         | eitherCase "c" "camelCase" = camelCase
+                         | eitherCase "n" "noCase"    = id
+                         | otherwise                  = id
+                           where eitherCase = eitherEq characterCase
 
 extChoice ext | null ext               = extSep
               | eitherExt "e" "extSep" = extSep
@@ -357,12 +384,22 @@ createChoice createOp | eitherCreate "t" "touch" = createFile
                       | otherwise                = createSmart
                         where eitherCreate = eitherEq createOp
 
-maker :: String -> String -> String -> String -> String -> [String] -> IO ()
-maker op sep char ext san name = creator $ quadApply homeF pathF nameF extF <$> pathNameExt name
-    where homeF = dropWhile isSpace
+mkTouchPlus :: Settings -> IO ()
+mkTouchPlus (Settings { ioOperation
+                      , separator
+                      , characterCase
+                      , extensionFormat
+                      , sanitisation
+                      , name }) = composition
+    where composition = creator $ quadApply homeF pathF nameF extF <$> pathNameExt <$> name
+          homeF = dropWhile isSpace
           pathF = \s -> noNulls $ tokenSepSanCase <$> splitWith "/" s
           nameF = tokenSepSanCase
-          extF  = tokenApply $ extChoice ext . sanitiseChoice san
-          creator x = putLineSurround $ sequence_ [output h p n e op | (h,p,n,e) <- x]
+          extF  = tokenApply $ extChoice extensionFormat . sanitiseChoice sanitisation
+          creator x = putLineSurround $ sequence_ [output (Output { home = h
+                                                                  , path = p
+                                                                  , name = n
+                                                                  , extension = e
+                                                                  , ioOperation }) | (h,p,n,e) <- x]
           tokenApply f = concat . f <$> tokens
-          tokenSepSanCase = tokenApply $ sepChoice sep . sanitiseChoice san . caseChoice char
+          tokenSepSanCase = tokenApply $ sepChoice separator . sanitiseChoice sanitisation . caseChoice characterCase
