@@ -7,6 +7,8 @@ Combines mkDir (-p) and touch, automatically formats word separators and case an
 
 ## Usage
 
+`mkTouchPlus -h` produces
+
 ``````
   mkTouch+ v1.0
 

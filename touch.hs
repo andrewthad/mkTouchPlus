@@ -16,7 +16,8 @@ import System.Directory ( createDirectory
 
 main = input
 
--- TODO: publish on github and change url
+-- TODO: use function for green s ++ "/"
+-- TODO: publish on github and change readme url
 
 -- Types ----------
 
@@ -95,6 +96,9 @@ indentAll = map (\ s -> if isBlank s then s else indent ++ s)
 head' :: String -> String
 head' ""      = ""
 head' (c:cs)  = [c]
+
+duplicate :: Int -> String -> String
+duplicate n s = [1..n] >> s
 
 -- Tokenisation ----------
 
@@ -348,49 +352,111 @@ version = lineSurround $ nameVersion
 help :: String
 help = unlines $ indentAll
     [ lineSurround nameVersion
-    , "Create one or more files and directory paths, with automatic name\
-        \ formatting."
-    , lineSurround "Usage:"
+    , description
+    , lineSurround $ heading "usage"
     , command usage
     , orUsage
     , command $ tag "name"
     , orUsage
-    , command $ tag (slashes $ blue <$> ["-h", "-v"])
+    , command flags
     , ""
-    , indent ++ "where:"
+    , indent ++ "Where:"
     , define "ioOperation"     ioOptions
     , define "separator"       sepOptions
     , define "characterCase"   caseOptions
     , define "extensionFormat" extOptions
     , define "sanitisation"    sanOptions
     , definition "name"        nameDefinition
-    , lineSurround "For more help, open the readme in your browser:"
+    , heading "examples"
+    , ""
+    , blue "create file.txt"
+    , green "create folder/"
+    , green "create/a/" ++ green "path/"
+    , green "create/a/" ++ blue "path.txt"
+    , green "this is / " ++ blue "automatic formatting . txt"
+    , green "ForMAtting / " ++ blue "@ % (consistency) ~ . & enforced STYLES"
+    , green "error / / proof / " ++ blue "... ... "
+    , intercalate "," [ blue "multiple.txt"
+                      , green "folders/"
+                      , blue "and.txt"
+                      , green "files/" ]
+    , "f,w,u,s,u," ++ green "choice of options/"
+    , "fileCreate,w,u,snakeCase,u,"
+          ++ green "options can be written in full-form/"
+    , ",,,,," ++ green "default options/"
+    , green "also default options/"
+    , ",s,,,," ++ green "snake case with other options as default/"
+    , ",s,,,w," ++ intercalate "," [ green "options plus/"
+                                   , green "multiple/"
+                                   , blue "files.txt"
+                                   , green "or folders/" ]
+    , "../" ++ green "parent directory/" ++ blue "file.txt"
+    , concat [ green "walking/"
+             , "../"
+             , green "the/"
+             , duplicate 2 "../"
+             , green "file system/" ]
+    , "/" ++ green "start at home directory/"
+    , concat [ "/"
+             , green "combining/"
+             , "../"
+             , blue "it.txt"
+             , ","
+             , green "all/" ]
+    , lineSurround $ heading "output"
+    , "The output of this command is color coded. e.g."
+    , ""
+    , concat [ red "a/"
+             , red "b/"
+             , green "c/"
+             , green "d/"
+             , "../"
+             , red "e/"
+             , blue "f.txt"
+             , "\n" ++ indent
+             , "/"
+             , green "h/"
+             , green "i/"
+             , red "j.txt"
+             , skipMsg ]
+    , ""
+    , "The colour code is:"
+    , unlines [ green "green"
+              , blue "blue" ]
+    , ""
+    , "For more help, open the readme in your browser:"
     , green readmeUrl ]
-        where command = (green "mkTouchPlus " ++)
-              orUsage = indent ++ "or"
-              col = 24
-              definition name explanation = concat $
-                  [ [1,2] >> indent
+        where definition name explanation = concat $
+                  [ duplicate 2 indent
                   , take col (blue name ++ repeat ' ')
                   , spaceSurround $ green ":"
                   , explanation ]
               define name explanation     = definition name (values explanation)
-              colorHead ""     = ""
-              colorHead (c:cs) = blue [c] ++ cs
-              tag              = surround "[" "]" . blue
-              commas           = intercalate (green ",")
-              slashes          = intercalate (green $ spaceSurround "/")
-              settings         = constrFields . toConstr
+              description    = "Create one or more files and directory paths,\
+                \ with automatic name formatting."
+              heading s      = map toUpper s ++ ":"
+              command        = (green "mkTouchPlus " ++)
+              orUsage        = indent ++ "or"
+              col            = 24
+              hlHead ""      = ""
+              hlHead (c:cs)  = blue [c] ++ cs
+              hlFlag (c:cs)  = blue "-" ++ green ("-" ++ [c]) ++ blue cs
+              tag            = surround "[" "]" . blue
+              commas         = intercalate (green ",")
+              slashes        = intercalate (green $ spaceSurround "/")
+              settings       = constrFields . toConstr
                                               $ Settings "" "" "" "" "" [""]
-              usage            = commas $ tag <$> settings
-              values x         = slashes $ colorHead <$> x
-              optionsList      = map fst
-              ioOptions        = optionsList ioChoices
-              sepOptions       = optionsList sepChoices
-              caseOptions      = optionsList caseChoices
-              extOptions       = optionsList extChoices ++ sepOptions
-              sanOptions       = optionsList sanitiseChoices
-              nameDefinition   = unlines
+              usage          = commas $ tag <$> settings
+              flags          = tag (slashes $ hlFlag <$> flagsList)
+              values x       = slashes $ hlHead <$> x
+              flagsList      = [ "help", "version"]
+              optionsList    = map fst
+              ioOptions      = optionsList ioChoices
+              sepOptions     = optionsList sepChoices
+              caseOptions    = optionsList caseChoices
+              extOptions     = optionsList extChoices ++ sepOptions
+              sanOptions     = optionsList sanitiseChoices
+              nameDefinition = unlines
                   ["One or more names for files or directories that will be"
                   , replicate col ' '++ indent ++ "outputted. Continues the\
                       \ comma-separated list of arguments."]
@@ -461,11 +527,11 @@ mkTouchPlus (Settings { ioOperation
           extF  = tokenApply $ extChoice extensionFormat
                              . san
           creator x = putLineSurround $ sequence_
-              [output (Output { home      = h
+              [ output (Output { home     = h
                               , path      = p
                               , name      = n
                               , extension = e
-                              , ioOperation }) | (h,p,n,e) <- x]
+                              , ioOperation }) | (h,p,n,e) <- x ]
           tokenApply f    = concat . f <$> tokens
           tokenSepSanCase = tokenApply $ sepChoice separator
                                        . san
