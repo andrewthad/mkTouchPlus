@@ -6,8 +6,8 @@ Combines `mkdir -p` and `touch`, automatically formats names and can make multip
 
 ## Requirements
 
-* [GHC](https://www.haskell.org/ghc/) 10 or greater
-* (Only tested on Linux)
+* [GHC](https://www.haskell.org/ghc/) 10 or greater. (Most people recommend installing [Stack](https://docs.haskellstack.org/en/stable/README/) which includes GHC)
+* Linux or Mac
 
 ## Installation
 
@@ -17,6 +17,12 @@ Combines `mkdir -p` and `touch`, automatically formats names and can make multip
 
 ```
 m() { echo "$*" | /home/bengyup/bin/mkTouchPlus/mkTouchPlus }
+```
+
+Also, you can create shell functions that pass different settings to mkTouchPlus. Like this:
+
+```
+ms() { echo ";snakeSep;;;;$*" | /home/bengyup/bin/mkTouchPlus/mkTouchPlus }
 ```
 
 4. You can use that shell function without even quoting its input like this: `m make / this.txt`. However, keep in mind that certain characters need to be escaped in Bash. To input these, you can use escape slashes: `m make \& this`, or surrounding quotes: `m ";;;;;make this"`.

@@ -401,7 +401,7 @@ help = unlines $ indentAll
     , blue ".dotFile"
     , dirGreen "dotted.path/a" ++ blue "b.txt"
     , "f,w,u,s,u," ++ green "choice of options"
-    , "fileCreate,w,u,snakeCase,u,"
+    , "fileCreate,w,u,snakeSep,u,"
           ++ green "options can be written in full-form"
     , ",,,,," ++ green "default options"
     , green "also default options"
