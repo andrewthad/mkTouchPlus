@@ -183,8 +183,6 @@ include, exclude :: (Foldable t, Eq a) => t a -> [[a]] -> [[a]]
 include = clude id
 exclude = clude not
 
-control, nbsp, spaces, punctuation, separators, numbers, capitals, letters, unixEx, macEx, windowsEx, sensibleEx, conservativeIn :: String
-
 control     = "\NUL" ++ ['\SOH'..'\US'] ++ "\DEL"
 nbsp        = "\255"
 spaces      = " " ++ nbsp
@@ -492,7 +490,7 @@ caseChoices = [ ("lowerCase", lowerCase)
               , ("upperCase", upperCase)
               , ("titleCase", titleCase)
               , ("camelCase", camelCase)
-              , ("id",id) ]
+              , ("id", id) ]
 
 extChoices = [ ("extSep",extSep) ]
 
@@ -529,11 +527,11 @@ mkTouchPlus (Settings { ioOperation
                       , extensionFormat
                       , sanitisation
                       , name }) = composition
-    where composition = creator $   quadApply homeF pathF nameF extF
+    where composition = creator $ quadApply homeF pathF nameF extF
                                 <$> pathNameExt
                                 <$> name
           homeF = dropWhile isSpace
-          pathF = \s -> noNulls $ tokenSepSanCase <$> splitWith "/" s
+          pathF = \ s -> noNulls $ tokenSepSanCase <$> splitWith "/" s
           nameF = tokenSepSanCase
           extF  = tokenApply $ extChoice extensionFormat
                              . san
