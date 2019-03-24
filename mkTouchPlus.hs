@@ -16,8 +16,6 @@ import System.Directory ( createDirectory
 
 main = input
 
--- TODO: publish on github and change readme url
-
 -- Types ----------
 
 data Settings = Settings { ioOperation     :: String
@@ -39,9 +37,10 @@ data Output = Output { home        :: String
 
 appName, versionNum, readmeUrl, indent :: String
 
-appName    = "mkTouch+"
+appName    = "mkTouchPlus"
 versionNum = "v" ++ show 1.0
-readmeUrl  = "https://www.com"
+readmeUrl  = "https://github.com/benjamin-glitsos/mkTouchPlus/blob/master/\
+    \README.md"
 
 indent = replicate 2 ' '
 
