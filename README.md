@@ -6,18 +6,24 @@ Combines `mkdir -p` and `touch`, automatically formats names and can make multip
 
 ## Requirements
 
-* [GHC](https://www.haskell.org/ghc/) 10 or greater. (Most people recommend installing [Stack](https://docs.haskellstack.org/en/stable/README/) which includes GHC)
 * Linux or Mac
+
+For compiling it yourself:
+
+* [GHC](https://www.haskell.org/ghc/) 10 or greater. (Most people recommend installing [Stack](https://docs.haskellstack.org/en/stable/README/) which includes GHC.) This script doesn’t depend on any non-base haskell libraries however so that makes it easier.
 
 ## Installation
 
-1. Install GHC and compile this script using `ghc -o mkTouchPlus mkTouchPlus.hs`
-2. Place the three files of the compiled script into your `bin/` folder
-3. Make a function in your `.bashrc` or `.zshrc` that calls your compiled script. Like so:
+### Using binaries
+
+1. Put the files in the `binary` folder of this repository into your system’s `bin` folder.
+2. Make a function in your `.bashrc` or `.zshrc` that calls your compiled script. Like so:
 
 ```
 m() { echo "$*" | /home/bengyup/bin/mkTouchPlus/mkTouchPlus }
 ```
+
+You can use that shell function without even quoting its input like this: `m make / this.txt`. However, keep in mind that certain characters need to be escaped in Bash. To input these, you can use escape slashes: `m make \& this`, or surrounding quotes: `m ";;;;;make %$ this"`.
 
 Also, you can create shell functions that pass different settings to mkTouchPlus. Like this:
 
@@ -25,7 +31,10 @@ Also, you can create shell functions that pass different settings to mkTouchPlus
 ms() { echo ";snakeSep;;;;$*" | /home/bengyup/bin/mkTouchPlus/mkTouchPlus }
 ```
 
-4. You can use that shell function without even quoting its input like this: `m make / this.txt`. However, keep in mind that certain characters need to be escaped in Bash. To input these, you can use escape slashes: `m make \& this`, or surrounding quotes: `m ";;;;;make this"`.
+### Compiling it yourself
+
+1. Install GHC and compile this script using `ghc -o mkTouchPlus mkTouchPlus.hs`
+2. Follow the steps in the above ‘Using binaries’ section
 
 ## Usage
 
