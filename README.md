@@ -31,9 +31,7 @@ ms() { echo ";snakeSep;;;;$*" | /home/bengyup/bin/mkTouchPlus/mkTouchPlus }
 
 You can use `mkTouchPlus` whenever you would otherwise use the `touch` or `mkdir -p` commands. By default, `mkTouchPlus` will automatically determine whether you want to create a file or directory.
 
-mkTouchPlus will format your file and directory and file-extension names in a consistent and automatic fashion. To configure this formatting, or to determine what output type (file, folder or echo) will be created, you can pass arguments to the command. These settings have the format of exactly five semicolon-separated values preceding the usual input. E.g.
-
-`m ";;u;;;this will be uppercase"`
+mkTouchPlus will format your file and directory and file-extension names in a consistent and automatic fashion. To configure this formatting, or to determine what output type (file, folder or echo) will be created, you can pass arguments to the command. These settings have the format of exactly five semicolon-separated values preceding the usual input. E.g. `m ";;u;;;this will be uppercase"`
 
 This script can also create multiple files and folders at a time if you separate the names of these outputs with commas. E.g. `make this, and this.txt, and this`
 
