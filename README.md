@@ -23,7 +23,7 @@ Combines `mkdir -p` and `touch`, automatically formats names and can make multip
 2. Make a function in your `.bashrc` or `.zshrc` that calls your compiled script. Like so:
 
 ```
-m() { echo "$*" | /home/bengyup/bin/mkTouchPlus/mkTouchPlus }
+m() { echo "$*" | /home/{USER}/bin/mkTouchPlus/mkTouchPlus }
 ```
 
 You can use that shell function without even quoting its input like this: `m make / this.txt`. However, keep in mind that certain characters need to be escaped in Bash. To input these, you can use escape slashes: `m make \& this`, or surrounding quotes: `m ";;;;;make %$ this"`.
@@ -31,7 +31,7 @@ You can use that shell function without even quoting its input like this: `m mak
 Also, you can create shell functions that pass different settings to mkTouchPlus. Like this:
 
 ```
-ms() { echo ";snakeSep;;;;$*" | /home/bengyup/bin/mkTouchPlus/mkTouchPlus }
+ms() { echo ";snakeSep;;;;$*" | /home/{USER}/bin/mkTouchPlus/mkTouchPlus }
 ```
 
 ### Compiling it yourself
