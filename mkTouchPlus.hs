@@ -314,8 +314,8 @@ parentStep = do
 input :: IO ()
 input = getContents >>= run . args
         where run x | all isBlank x = noInput
-                    | x `anyEq` ["-v", "--v", "--version"] = putStrLn version
-                    | x `anyEq` ["-h", "--h", "--help"]    = putStrLn help
+                    | x `sanAnyEq` ["-v", "--v", "--version"] = putStrLn version
+                    | x `sanAnyEq` ["-h", "--h", "--help"]    = putStrLn help
                     | (a:b:c:d:e:rest) <- x = mkTouchPlus Settings
                         { ioOperation     = a
                         , separator       = b
@@ -332,6 +332,7 @@ input = getContents >>= run . args
                         , name            = splitNames x }
               noInput = putStrLn (lineSurround $ red "No input")
               splitNames = (>>= names)
+              sanAnyEq x y = sanitiseChoice "conservative" x `anyEq` y
 
 output :: Output -> IO ()
 output (Output {home, path, name, extension, ioOperation})
@@ -417,20 +418,6 @@ help = unlines $ indentAll
              , duplicate 2 "../"
              , dirGreen "file system" ]
     , "/" ++ green "start at home directory"
-    , concat [ "/"
-             , dirGreen "combining"
-             , "../"
-             , blue "it.txt"
-             , ","
-             , dirGreen "all"
-             , duplicate 3 "../"
-             , " @(# "
-             , dirGreen " @(# together%$ .@    "
-             , concat [ ",s,camelCase,,,"
-                      , dirGreen "for"
-                      , ","
-                      , dirGreen "our"
-                      , blue ".amusement" ] ]
     , lineSurround $ heading "output" ----------
     , "The output of this command is color coded. e.g."
     , ""
@@ -525,11 +512,14 @@ sanitiseChoices = [ ("unix", unix)
 ioChoices = [ ("fileCreate", fileCreate)
             , ("dirCreate", dirCreate)
             , ("smartCreate", smartCreate)
-            , ("putStrLn", putStrLn) ]
+            , ("echo", echo) ]
+
+echo :: String -> IO ()
+echo = putStrLn
 
 sepChoice, caseChoice, extChoice, sanitiseChoice
-         :: String -> [String] -> [String]
-ioChoice :: String -> String -> IO ()
+         :: String -> ([String] -> [String])
+ioChoice :: String -> (String -> IO ())
 
 sepChoice separator         = select separator hyphenSep sepChoices
 caseChoice characterCase    = select characterCase id caseChoices
