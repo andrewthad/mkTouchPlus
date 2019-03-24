@@ -34,8 +34,9 @@ This script can also create multiple files and folders at a time if you separate
 To see all the options that can be set, and also for some example inputs and a key to the color-coding, run `mkTouchPlus -h`. You will then see a colored version of:
 
 ```
+
   
-  mkTouch+ v1.0
+  mkTouchPlus v1.0
 
   Create one or more files and directory paths, with automatic name formatting.
   
@@ -54,7 +55,7 @@ To see all the options that can be set, and also for some example inputs and a k
       extensionFormat : extSep / hyphenSep / snakeSep / dotSep / whitespaceSep
       sanitisation    : unix / windows / mac / sensible / conservative
       name            : One or more names for files or directories that will be
-                          outputted. Continues the comma-separated list of arguments.
+                          outputted. Comma-separated.
 
   EXAMPLES:
 
@@ -81,15 +82,14 @@ To see all the options that can be set, and also for some example inputs and a k
 
   The output of this command is color coded. e.g.
 
-  a/b/c/d/../e/f.txt
-  /h/i/j.txt/  -- Not touched.
+  a/b/c/../d/e/file.txt
   
   The color code is:
 
-  blue:   for created files
-  green:  for created directories
-  white:  for non-creation events
-  red:    for errors and skipped creations
+  blue  for created files
+  green for created directories
+  white for non-creation events
+  red   for errors and skipped creations
   
   For more help, open the readme in your browser:
 

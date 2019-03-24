@@ -466,9 +466,9 @@ help = unlines $ indentAll
               sanOptions      = optionsList sanitiseChoices
               nameDefinition  = unlines
                   ["One or more names for files or directories that will be"
-                  , replicate col ' '++ indent ++ "outputted. Continues the\
-                      \ comma-separated list of arguments."]
-              colorCode f s d = take 17 (f s ++ ":" ++ repeat ' ') ++ d
+                  , replicate col ' '++ indent ++ "outputted.\
+                    \ Comma-separated." ]
+              colorCode f s d = take 15 (f s ++ repeat ' ') ++ d
 
 -- Composition ----------
 
