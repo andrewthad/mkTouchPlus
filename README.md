@@ -2,6 +2,8 @@
 
 Combines `mkdir -p` and `touch`, automatically formats names and can make multiple files and folder at once. A huge time-saver that I made so I could use it everyday, especially to auto-hyphenate my filepaths.
 
+![Screenshot of mkTouchPlus in the terminal](https://github.com/benjamin-glitsos/mkTouchPlus/blob/master/mkTouchPlus-screenshot.jpg)
+
 ## Requirements
 
 * [GHC](https://www.haskell.org/ghc/) 10 or greater

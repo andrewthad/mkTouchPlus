@@ -423,16 +423,10 @@ help = unlines $ indentAll
     , concat [ dirRed "a"
              , dirRed "b"
              , dirGreen "c"
-             , dirGreen "d"
              , "../"
-             , dirRed "e"
-             , blue "f.txt"
-             , "\n" ++ indent
-             , "/"
-             , dirGreen "h"
-             , dirGreen "i"
-             , dirRed "j.txt"
-             , skipMsg ]
+             , dirGreen "d"
+             , dirGreen "e"
+             , blue "file.txt" ]
     , lineSurround "The color code is:"
     , colorCode blue "blue" "for created files"
     , colorCode green "green" "for created directories"
