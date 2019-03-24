@@ -91,6 +91,6 @@ To see all the options that can be set, and also for some example inputs and a k
   
   For more help, open the readme in your browser:
 
-  https://www.com
+  https://github.com/benjamin-glitsos/mkTouchPlus/blob/master/README.md
 
 ```
