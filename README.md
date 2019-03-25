@@ -8,7 +8,7 @@ Combines `mkdir -p` and `touch`, automatically formats names and can make multip
 
 ### Using binaries
 
-* Linux or Mac
+* Linux
 
 ### Compiling it yourself
 
