@@ -114,25 +114,3 @@ To see all the options that can be set, and also for some example inputs and a k
   https://github.com/benjamin-glitsos/mkTouchPlus/blob/master/README.md
 
 ```
-
-## Using Linux commands to allow variables in filenames and to use mkTouchPlus as a ‘templater’ for your project folder structures
-
-I considered adding a feature that allows you to include variables within filenames like so:
-
-`m file[date].txt` => `file-25-03-19.txt`
-
-This feature is crucial because it allows you to use this tool as a ‘templater’ for your project structure that you can use repeatedly, with variations being handled automatically with variables. These variations are often along the lines of:
-
-* [date],
-* [user] - the USER environment variable,
-* [parent] - the parent folder’s name, and
-* [i] - a count that increments each time the variable is called.
-* [custom variables] - i.e. the name of the project
-
-But then I realised that there was a lot more power and flexibility in passing shell variables and commands to mkDirPlus than in attempting to code all these features into mkDirPlus itself. For instance, you could do:
-
-`m file $(date +"%Y-%m-%d").txt` => `file-2019-03-25.txt`
-
-or
-
-`m file $i.txt;((i++))` => `file.txt` then `file-1.txt` then `file-2.txt` etc.
