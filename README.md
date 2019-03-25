@@ -49,7 +49,30 @@ This script can also create multiple files and folders at a time if you separate
 
 Note that you can easily pass shell commands to mkDirPlus so that you include dates, environment variables, counters and custom variables within your file and folder names. For instance, `m file $(date +"%Y-%m-%d").txt` => `file-2019-03-25.txt`. Or, `m file $i.txt;((i++))` => `file.txt` then `file-1.txt` then `file-2.txt` etc.
 
-To see all the options that can be set, and also for some example inputs and a key to the color-coding, run `mkTouchPlus -h`. You will then see a colored version of:
+## Future development
+
+I would like to extend the syntax of mkTouchPlus to allow representing hierarchies of data within a single string (without needing to abuse `../`). For instance:
+
+```
+m a/b/(c/d,e/f/g(h,file.txt))i,j/k.txt
+```
+
+=>
+
+```
+a/b/
+    c/d/
+    e/f/g/h/
+        file.txt
+    i/
+    j/k.txt
+```
+
+This would allow mkTouchPlus to be used as a full-fledged ‘project templater’, or an [Emmett](https://emmet.io/) for filesystems.
+
+## --help
+
+This is the output of `mkTouchPlus --help`, except it lacks the ANSI colours that are visible in the terminal:
 
 ```
 
