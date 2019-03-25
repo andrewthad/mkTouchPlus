@@ -352,6 +352,7 @@ output (Output {home, path, name, extension, ioOperation})
          p       = intercalate "/" path ++ "/"
          nep     = p ++ ne
 
+
 goHome :: String -> IO ()
 goHome s = do
     home <- getHomeDirectory
