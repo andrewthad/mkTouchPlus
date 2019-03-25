@@ -2,7 +2,6 @@
 
 import Control.Applicative (liftA2)
 import Control.Arrow ((&&&), second)
-import Control.Monad (liftM)
 import Data.Char (isSpace, toLower, toUpper)
 import Data.Data (constrFields, Data, toConstr, Typeable)
 import Data.Function ((&), on)
@@ -15,18 +14,6 @@ import System.Directory ( createDirectory
                         , setCurrentDirectory
                         , getHomeDirectory )
 
-
-
--- TODO: make the home and path within output IO String values. Then use the do notation in IO to get them out of there
--- they are denoted like: [var]
--- needs to come before case, san and all them. use liftM ?
--- Varibles needed:
--- parent
--- date
--- USER getEnv "USER". System.Environment(getEnv)
-
-
-
 main = input
 
 -- Types ----------
@@ -37,13 +24,14 @@ data Settings = Settings { ioOperation     :: String
                          , extensionFormat :: String
                          , sanitisation    :: String
                          , name            :: [String]
-                         } deriving (Data, Typeable)
+                         } deriving (Data, Show, Typeable)
 
 data Output = Output { home        :: String
                      , path        :: [String]
-                     , name        :: IO String
+                     , name        :: String
                      , extension   :: String
-                     , ioOperation :: String }
+                     , ioOperation :: String
+                     } deriving (Show)
 
 -- Constants ----------
 
@@ -345,24 +333,24 @@ input = getContents >>= run . args
 
 output :: Output -> IO ()
 output (Output { home, path, name, extension, ioOperation })
-  -- | eitherEq ioOperation "e" "echo" = ioChoice ioOperation nep
-  -- | isBlank name && notNull extension = output
-  --     (Output { home      = home
-  --             , path      = path
-  --             , name      = dotFile extension
-  --             , extension = ""
-  --             , ioOperation } )
+  | eitherEq ioOperation "e" "echo" = ioChoice ioOperation nep
+  | isBlank name && notNull extension = output
+      (Output { home      = home
+              , path      = path
+              , name      = dotFile extension
+              , extension = ""
+              , ioOperation } )
   | otherwise = do
       putStr indent
       cd <- getCurrentDirectory
       goHome home
       mkDirPath path
-      liftM (ioChoice ioOperation) name
+      ioChoice ioOperation ne
       setCurrentDirectory cd
    where dotFile = ("." ++)
-         ne      = name -- nameExtDot name extension
+         ne      = nameExtDot name extension
          p       = intercalate "/" path ++ "/"
-         nep     = liftM (p ++) ne
+         nep     = p ++ ne
 
 goHome :: String -> IO ()
 goHome s = do
@@ -544,7 +532,7 @@ mkTouchPlus (Settings { ioOperation
                                 <$> name
           homeF = dropWhile isSpace
           pathF = \ s -> noNulls $ tokenSepSanCase <$> splitWith "/" s
-          nameF x = (liftM tokenSepSanCase) <$> variables x
+          nameF = tokenSepSanCase
           extF  = tokenApply $ extChoice extensionFormat
                              . san
           creator x = putLineSurround $ sequence_
@@ -558,13 +546,3 @@ mkTouchPlus (Settings { ioOperation
                                        . san
                                        . caseChoice characterCase
           san = noNulls . sanitiseChoice sanitisation
-
-
-replace :: Eq b => b -> b -> [b] -> [b]
-replace a b = map (\x -> if (a == x) then b else x)
-
-variables :: [String] -> IO [String]
-variables x = do
-    cd <- getCurrentDirectory
-    let parent   = fst $ pathFile cd
-    return (replace "wow" parent x)
