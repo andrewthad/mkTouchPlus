@@ -68,7 +68,7 @@ a/b/
     j/k.txt
 ```
 
-This would allow mkTouchPlus to be used as a full-fledged ‘project templater’, or an [Emmett](https://emmet.io/) for filesystems.
+This would allow mkTouchPlus to be used as a full-fledged ‘project templater’ or ‘[Emmett](https://emmet.io/)’ for filesystems.
 
 ## --help
 
