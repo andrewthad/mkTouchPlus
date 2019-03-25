@@ -23,7 +23,7 @@ Combines `mkdir -p` and `touch`, automatically formats names and can make multip
 2. Make a function in your `.bashrc` or `.zshrc` that calls your compiled script. Like so:
 
 ```
-m() { echo "$*" | /home/{USER}/bin/mkTouchPlus/mkTouchPlus }
+m() { echo "$*" | /home/$(echo $USER)/bin/mkTouchPlus/mkTouchPlus }
 ```
 
 You can use that shell function without even quoting its input like this: `m make / this.txt`. However, keep in mind that certain characters need to be escaped in Bash. To input these, you can use escape slashes: `m make \& this`, or surrounding quotes: `m ";;;;;make %$ this"`.
@@ -31,7 +31,7 @@ You can use that shell function without even quoting its input like this: `m mak
 Also, you can create shell functions that pass different settings to mkTouchPlus. Like this:
 
 ```
-ms() { echo ";snakeSep;;;;$*" | /home/{USER}/bin/mkTouchPlus/mkTouchPlus }
+ms() { echo ";snakeSep;;;;$*" | /home/$(echo $USER)/bin/mkTouchPlus/mkTouchPlus }
 ```
 
 ### Compiling it yourself
@@ -47,7 +47,13 @@ mkTouchPlus will format your file and directory and file-extension names in a co
 
 This script can also create multiple files and folders at a time if you separate the names of these outputs with commas. E.g. `make this, and this.txt, and this`
 
-Note that you can easily pass shell commands to mkDirPlus so that you include dates, environment variables, counters and custom variables within your file and folder names. For instance, `m file $(date +"%Y-%m-%d").txt` => `file-2019-03-25.txt`. Or, `m file $i.txt;((i++))` => `file.txt` then `file-1.txt` then `file-2.txt` etc.
+Note that you can easily pass shell commands to mkDirPlus so that you include dates, environment variables, counters and custom variables within your file and folder names. For instance, `m file $(date +"%d %m %Y").txt` => `file-25-03-2019.txt`.
+
+I find this useful as a shell function:
+
+```
+md() { echo "$* $(date +"%d %m %Y")" | /home/$(echo $USER)/bin/mkTouchPlus/mkTouchPlus }
+```
 
 ## Future development
 
