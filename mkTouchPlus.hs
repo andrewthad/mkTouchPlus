@@ -77,7 +77,7 @@ shrinkTo n s = if length s > n
                  else s
 
 shrink :: String -> String
-shrink = shrinkTo 21
+shrink = shrinkTo 50
 
 isBlank :: String -> Bool
 isBlank = all isSpace
