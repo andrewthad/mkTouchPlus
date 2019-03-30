@@ -13,7 +13,7 @@ Combines `mkdir -p` and `touch`, automatically formats names and can make multip
 ### Compiling it yourself
 
 * Linux or Mac
-* [GHC](https://www.haskell.org/ghc/) 10 or greater. Most people recommend installing [Stack](https://docs.haskellstack.org/en/stable/README/) which includes GHC. This script doesn’t depend on any Haskell packages outside of the base, so that makes things a lot easier.
+* [GHC](https://www.haskell.org/ghc/) installed. Most people recommend installing [Stack](https://docs.haskellstack.org/en/stable/README/) which includes GHC. This script doesn’t depend on any Haskell packages outside of the base, so that makes things a lot easier.
 
 ## Installation
 
